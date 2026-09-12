@@ -96,7 +96,7 @@ export function InfrastructureMap({ graph, running, onSelect, selectedLayer, det
       {running && !reduced && <div className="scan-beam" />}
       <div className="map-canvas" style={{ aspectRatio: `${W} / ${H}`, transform: mobile ? undefined : `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>
         <svg viewBox={`0 0 ${W} ${H}`} className="graph-edges" aria-hidden="true">
-          <defs><marker id={`${id}-arrow`} markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M1 1L5 3L1 5" fill="none" stroke="#737d61" strokeWidth=".8" /></marker></defs>
+          <defs><marker id={`${id}-arrow`} markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M1 1L5 3L1 5" fill="none" stroke="var(--edge)" strokeWidth=".8" /></marker></defs>
           {graph.edges.map((edge, i) => {
             const d = pathFor(edge.from, edge.to);
             if (!d) return null;
@@ -106,10 +106,10 @@ export function InfrastructureMap({ graph, running, onSelect, selectedLayer, det
             const labelX = a.x === b.x ? a.x + nodeW / 2 + 9 : (a.x + b.x + nodeW) / 2;
             const labelY = a.x === b.x ? (a.y + b.y + nodeH) / 2 : (a.y + b.y) / 2 + nodeH / 2 - 12;
             return <motion.g key={edge.id} initial={{ opacity: 0 }} animate={{ opacity: muted ? .17 : 1 }} transition={{ duration: .5 }}>
-              <motion.path d={d} fill="none" stroke={edge.kind === "inference" ? "#8e8d64" : "#4a5344"} strokeWidth="1.15"
+              <motion.path d={d} fill="none" stroke={edge.kind === "inference" ? "var(--edge-inferred)" : "var(--edge)"} strokeWidth="1.15"
                 strokeDasharray={edge.kind === "inference" ? "3 5" : edge.kind === "relationship" ? "1 4" : undefined}
                 markerEnd={directional ? `url(#${id}-arrow)` : undefined} initial={{ pathLength: reduced ? 1 : 0 }} animate={{ pathLength: 1 }} transition={{ duration: .7 }} />
-              {directional && !reduced && <circle r="2.1" fill="#e4eea2" opacity=".75"><animateMotion dur={`${3.8 + (i % 3)}s`} begin={`${i * .25}s`} repeatCount="indefinite" path={d} /></circle>}
+              {directional && !reduced && <circle r="2.1" fill="var(--accent)" opacity=".75"><animateMotion dur={`${3.8 + (i % 3)}s`} begin={`${i * .25}s`} repeatCount="indefinite" path={d} /></circle>}
               {!mobile && detail && <text x={labelX} y={labelY} textAnchor={a.x === b.x ? "start" : "middle"} className="edge-label">{edge.label.length > 24 ? edge.label.slice(0, 23) + "…" : edge.label}</text>}
             </motion.g>;
           })}

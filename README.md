@@ -19,9 +19,7 @@ because it looks plausible.
 - Node.js 22 or newer (`engines.node: ">=22"`)
 - npm (the repository ships a `package-lock.json`; use `npm ci`)
 
-No API keys, accounts, or `.env` file are required to run the instrument. Fonts are vendored as local
-npm packages (`@fontsource-variable/instrument-sans`, `@fontsource/ibm-plex-mono`), so no font CDN is
-contacted at build or run time.
+No API keys, accounts, or `.env` file are required to run the instrument. The interface uses the platform system font stack, so it feels native on Apple, Windows, and Android devices and does not contact a font CDN.
 
 ## Getting started
 

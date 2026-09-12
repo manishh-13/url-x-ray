@@ -1,6 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import "@fontsource-variable/instrument-sans";
-import "@fontsource/ibm-plex-mono/400.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -9,8 +7,8 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
   icons: { icon: "/icon.svg" },
 };
-export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#101211", colorScheme: "dark" };
+export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#f5f7fa", colorScheme: "light dark" };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body>{children}</body></html>;
+  return <html lang="en" data-theme="light"><body>{children}</body></html>;
 }

@@ -13,7 +13,7 @@ export function XRayMark({ className = "" }: { className?: string }) {
   return <svg className={className} viewBox="0 0 32 32" fill="none" aria-hidden="true">
     <path d="M5 5L27 27M27 5L5 27" stroke="currentColor" strokeWidth="1.25" />
     <path d="M10 3L29 22M3 10L22 29M22 3L3 22M29 10L10 29" stroke="currentColor" strokeWidth="1.25" opacity=".4" />
-    <circle cx="16" cy="16" r="4" fill="var(--bg, #101211)" stroke="currentColor" strokeWidth="1.25" />
+    <circle cx="16" cy="16" r="4" fill="var(--bg)" stroke="currentColor" strokeWidth="1.25" />
     <circle cx="16" cy="16" r="1.3" fill="currentColor" />
   </svg>;
 }
@@ -30,12 +30,23 @@ export function Dialog({ open, onClose, title, eyebrow, children, wide = false }
   open: boolean; onClose: () => void; title: string; eyebrow?: string; children: ReactNode; wide?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog) return;
-    if (open && !dialog.open) dialog.showModal();
+    if (open && !dialog.open) {
+      openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      dialog.showModal();
+    }
     if (!open && dialog.open) dialog.close();
   }, [open]);
+  useEffect(() => {
+    const dialog = ref.current;
+    if (!dialog) return;
+    const restore = () => openerRef.current?.focus({ preventScroll: true });
+    dialog.addEventListener("close", restore);
+    return () => dialog.removeEventListener("close", restore);
+  }, []);
   useEffect(() => {
     if (!open) return;
     const previous = document.body.style.overflow;

@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { motion, MotionConfig, useReducedMotion } from "motion/react";
-import { ArrowLeft, ArrowRight, ArrowUpRight, Braces, CircleHelp, Globe2, LoaderCircle, ScanLine } from "lucide-react";
+import { ArrowLeft, ArrowRight, ArrowUpRight, Braces, CircleHelp, Globe2, LoaderCircle, Moon, ScanLine, Sun } from "lucide-react";
 import { useInvestigation } from "@/lib/client/use-investigation";
 import { Landing } from "./landing";
 import { Workbench } from "./workbench";
@@ -13,7 +13,12 @@ export function XRayApp({ initialHostname }: { initialHostname?: string }) {
   const [methodology, setMethodology] = useState(false);
   const [privacy, setPrivacy] = useState(false);
   const [sharedEntry, setSharedEntry] = useState(!!initialHostname);
+  const [theme, setTheme] = useState<"light" | "dark">("light");
   const reduced = useReducedMotion();
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+  }, [theme]);
   const start = useCallback((url: string) => {
     setSharedEntry(false);
     void run(url);
@@ -22,7 +27,17 @@ export function XRayApp({ initialHostname }: { initialHostname?: string }) {
   const home = () => { reset(); setSharedEntry(false); window.scrollTo({ top: 0, behavior: "instant" }); };
   return <MotionConfig reducedMotion="user"><div className={`app-shell ${investigation ? "has-investigation" : ""}`}>
     <a className="skip-link" href="#main-content">Skip to content</a>
-    <header className="site-header"><button className="brand" onClick={home} aria-label="URL X-Ray home"><XRayMark /><span>URL X-RAY</span><span className="brand-divider" /><small>INTERNET OBSERVATORY</small></button><nav aria-label="Main navigation"><button onClick={() => setMethodology(true)}>How it works<ArrowUpRight size={12} /></button><button onClick={() => setPrivacy(true)} className="header-privacy">Our boundaries<ArrowUpRight size={12} /></button><span className="private-build"><span />PRIVATE ALPHA</span></nav></header>
+    <header className="site-header">
+      <button className="brand" onClick={home} aria-label="URL X-Ray home"><XRayMark /><span>URL X-RAY</span><span className="brand-divider" /><small>INTERNET OBSERVATORY</small></button>
+      <nav aria-label="Main navigation">
+        <button onClick={() => setMethodology(true)}>How it works<ArrowUpRight size={14} /></button>
+        <button onClick={() => setPrivacy(true)} className="header-privacy">Our boundaries<ArrowUpRight size={14} /></button>
+        <button className="theme-toggle" aria-label={`Switch to ${theme === "light" ? "dark" : "light"} mode`} aria-pressed={theme === "dark"} onClick={() => setTheme((current) => current === "light" ? "dark" : "light")}>
+          {theme === "light" ? <Moon size={17} /> : <Sun size={17} />}<span>{theme === "light" ? "Dark" : "Light"}</span>
+        </button>
+        <span className="private-build"><span />PRIVATE ALPHA</span>
+      </nav>
+    </header>
     {investigation ? <Workbench key={investigation.id} investigation={investigation} running={running} error={error} onRun={start} onCancel={cancel} onHome={home} onMethodology={() => setMethodology(true)} /> : running ? <main id="main-content" className="opening-instrument"><motion.div initial={reduced ? false : { opacity: 0, scale: .9 }} animate={{ opacity: 1, scale: 1 }}><div className="opening-mark"><XRayMark /><span /></div><span className="eyebrow">OPENING THE INSTRUMENT</span><h1>Every URL has a story.</h1><p><LoaderCircle size={15} className="spin" />Parsing the address and checking the public boundary.</p><button className="text-button" onClick={cancel}>Cancel investigation</button></motion.div></main> : sharedEntry && initialHostname ? <main className="shared-entry" id="main-content"><span className="eyebrow">A SHARED STARTING POINT</span><Globe2 size={40} strokeWidth={1} /><h1>{initialHostname}</h1><p>Put this hostname under the X-ray. This starts a fresh observation of public infrastructure, not a saved result.</p><button className="primary-button" onClick={() => start(`https://${initialHostname}`)}><ScanLine size={16} />X-ray this hostname<ArrowRight size={17} /></button><button className="text-button" onClick={home}><ArrowLeft size={13} />Start somewhere else</button></main> : <Landing onSubmit={start} error={error} />}
     <footer className="site-footer"><div><XRayMark /><span>Every URL has a story.</span></div><p>Publicly observable. Never all-knowing.</p><button onClick={() => setPrivacy(true)}>Privacy & scope<ArrowUpRight size={12} /></button></footer>
     <Dialog open={methodology} onClose={() => setMethodology(false)} title="Understand the invisible." eyebrow="HOW THE INSTRUMENT WORKS" wide><p className="detail-intro">URL X-Ray turns a URL into a map of its publicly observable infrastructure. Real evidence arrives independently, and the explanation grows with it.</p><div className="method-steps">{[

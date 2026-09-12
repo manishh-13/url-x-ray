@@ -15,8 +15,6 @@
     "check": "npm run typecheck && npm test && npm run build"
   },
   "dependencies": {
-    "@fontsource-variable/instrument-sans": "latest",
-    "@fontsource/ibm-plex-mono": "latest",
     "ipaddr.js": "latest",
     "lucide-react": "1.45.0",
     "motion": "13.2.0",
