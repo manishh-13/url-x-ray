@@ -1,8 +1,10 @@
+import { dnsNameDoesNotExist, failedDnsQueries } from "./dns-status";
 import type {
   Confidence,
   DnsData,
   Evidence,
   Finding,
+  HttpData,
   GraphEdge,
   GraphNode,
   InfrastructureGraph,
@@ -170,7 +172,20 @@ function list(values: string[], max: number): string {
 }
 
 function plural(count: number, word: string): string {
-  return `${count} ${word}${count === 1 ? "" : "s"}`;
+  if (count === 1) return `${count} ${word}`;
+  const suffix = /(?:s|x|z|ch|sh)$/i.test(word) ? "es" : "s";
+  return `${count} ${word}${suffix}`;
+}
+
+/**
+ * True only when a response actually arrived. The HTTP provider still reports a
+ * snapshot when nothing was received (no hops, final status 0), and that shape
+ * is an unavailable layer, not an observed status or a failed redirect chain.
+ */
+function httpResponseCaptured(http: HttpData | undefined): boolean {
+  if (!http) return false;
+  if ((http.hops ?? []).length > 0) return true;
+  return (http.finalStatus ?? 0) > 0;
 }
 
 function recordsOfType(dns: DnsData | undefined, type: string) {
@@ -188,23 +203,29 @@ export function registrableName(hostname: string): string {
   return lastTwo;
 }
 
-function failedQueries(dns: DnsData | undefined): string[] {
-  const status = dns?.queryStatus ?? {};
-  return Object.keys(status).filter((key) => {
-    const value = String(status[key] ?? "").toUpperCase();
-    return value.length > 0 && value !== "NOERROR" && value !== "OK";
-  });
-}
+/** The SAN types a client checks for name coverage: "DNS:host", "IP Address:1.2.3.4". */
+const COVERAGE_SAN_PREFIX = /^(?:dns|ip address|ip)\s*:\s*(.+)$/i;
 
-function hasNxdomain(dns: DnsData | undefined): boolean {
-  const status = dns?.queryStatus ?? {};
-  return Object.values(status).some((value) => String(value).toUpperCase().includes("NXDOMAIN"));
+/** SAN types that are never a hostname, so they can never cover the requested name. */
+const NON_NAME_SAN_PREFIX = /^(?:uri|url|email|othername|dirname|registered id|rid|x400address)\s*:/i;
+
+/**
+ * The hostname or address an entry covers, or "" when the entry is not a name a
+ * client would match. An entry with no type prefix is already a bare name, which
+ * keeps hand written fixtures and IPv6 literals working.
+ */
+function sanName(raw: string): string {
+  const entry = raw.trim();
+  const covered = COVERAGE_SAN_PREFIX.exec(entry);
+  if (covered) return covered[1].trim();
+  if (NON_NAME_SAN_PREFIX.test(entry)) return "";
+  return entry;
 }
 
 function nameMatchesCertificate(hostname: string, names: string[]): boolean {
   const target = hostname.replace(/\.$/, "").toLowerCase();
   return names.some((raw) => {
-    const name = raw.replace(/\.$/, "").trim().toLowerCase();
+    const name = sanName(raw).replace(/\.$/, "").toLowerCase();
     if (!name) return false;
     if (name === target) return true;
     if (!name.startsWith("*.")) return false;
@@ -215,11 +236,17 @@ function nameMatchesCertificate(hostname: string, names: string[]): boolean {
   });
 }
 
+/**
+ * Names a client would check, SANs first. When any subjectAltName is present the
+ * common name is not a name a client will accept, so it is left out rather than
+ * padding the list; the CN is only used when the certificate carries no SAN.
+ */
 function certificateNames(subject: string, sans: string[]): string[] {
+  const fromSans = sans.map(sanName).filter(Boolean);
+  if (fromSans.length > 0) return Array.from(new Set(fromSans));
   const fromSubject = /cn\s*=\s*([^,/]+)/i.exec(subject ?? "");
-  const names = [...sans];
-  if (fromSubject) names.push(fromSubject[1].trim());
-  return names.filter(Boolean);
+  const cn = fromSubject ? fromSubject[1].trim() : "";
+  return cn ? [cn] : [];
 }
 
 export function shortName(dn: string): string {
@@ -333,7 +360,7 @@ export function interpretInvestigation(investigation: Investigation): Finding[] 
     const addresses = dns.addresses ?? [];
     const cnames = recordsOfType(dns, "CNAME");
     const nameservers = recordsOfType(dns, "NS");
-    const failed = failedQueries(dns);
+    const failed = failedDnsQueries(dns);
 
     if (addresses.length > 0) {
       add({
@@ -348,7 +375,7 @@ export function interpretInvestigation(investigation: Investigation): Finding[] 
         confidence: "observed",
         evidenceIds: dnsEvidence,
       });
-    } else if (hasNxdomain(dns)) {
+    } else if (dnsNameDoesNotExist(dns)) {
       add({
         id: "finding-dns-nxdomain",
         layer: "dns",
@@ -416,7 +443,10 @@ export function interpretInvestigation(investigation: Investigation): Finding[] 
   const httpStatus = providerState(investigation, "http");
   const http = investigation.http;
   const httpEvidence = evidenceIds(investigation, "http");
-  if (!http) {
+  if (!http || !httpResponseCaptured(http)) {
+    const stopped = [providerMessage(investigation, "http"), http?.stoppedReason ?? ""].find(
+      (reason) => reason.length > 0,
+    );
     add({
       id: isPending(httpStatus) ? "finding-http-pending" : "finding-http-unavailable",
       layer: "http",
@@ -424,7 +454,7 @@ export function interpretInvestigation(investigation: Investigation): Finding[] 
       description: isPending(httpStatus)
         ? "The request has not returned yet, so status code, redirects and headers are still unknown."
         : `No response was recorded for ${url?.href ?? hostname}${
-            providerMessage(investigation, "http") ? `: ${providerMessage(investigation, "http")}` : ""
+            stopped ? `: ${stopped}` : ""
           }. Whether the site serves content is unknown from this run.`,
       confidence: "unknown",
       evidenceIds: httpEvidence,
@@ -817,7 +847,7 @@ export function buildInfrastructureGraph(investigation: Investigation): Infrastr
   const dnsStatus = providerState(investigation, "dns");
   const dnsAddresses = dns?.addresses ?? [];
   const dnsRecordCount = dns?.records?.length ?? 0;
-  const dnsKnown = Boolean(dns) && (dnsRecordCount > 0 || dnsAddresses.length > 0 || hasNxdomain(dns));
+  const dnsKnown = Boolean(dns) && (dnsRecordCount > 0 || dnsAddresses.length > 0 || dnsNameDoesNotExist(dns));
   nodes.push({
     id: "dns",
     layer: "dns",
@@ -828,7 +858,7 @@ export function buildInfrastructureGraph(investigation: Investigation): Infrastr
         : "unknown"
       : dnsAddresses.length > 0
         ? `${plural(dnsAddresses.length, "address")}`
-        : hasNxdomain(dns)
+        : dnsNameDoesNotExist(dns)
           ? "NXDOMAIN"
           : dnsRecordCount > 0
             ? `${plural(dnsRecordCount, "record")}, no address`
@@ -845,7 +875,7 @@ export function buildInfrastructureGraph(investigation: Investigation): Infrastr
     layer: "network",
     eyebrow: "ADDRESS",
     label: primary?.ip ?? "unknown",
-    detail: primary ? primary.detail : dns && hasNxdomain(dns) ? "no address exists" : "not resolved",
+    detail: primary ? primary.detail : dns && dnsNameDoesNotExist(dns) ? "no address exists" : "not resolved",
     confidence: primary ? "observed" : "unknown",
     status: primary?.origin === "http" ? providerState(investigation, "http") : dnsStatus,
     evidenceIds: primary ? evidenceIdsMentioning(investigation, primary.ip) : [],
@@ -898,19 +928,20 @@ export function buildInfrastructureGraph(investigation: Investigation): Infrastr
   });
 
   const httpStatus = providerState(investigation, "http");
+  const httpAnswered = httpResponseCaptured(http);
   nodes.push({
     id: "http",
     layer: "http",
     eyebrow: "HTTP",
-    label: http
-      ? `${http.finalStatus}${(http.redirectCount ?? 0) > 0 ? ` after ${http.redirectCount}` : ""}`
+    label: httpAnswered
+      ? `${http!.finalStatus}${(http!.redirectCount ?? 0) > 0 ? ` after ${http!.redirectCount}` : ""}`
       : isPending(httpStatus)
         ? "request pending"
         : "unknown",
-    detail: http
-      ? clip(http.finalUrl || "final URL not recorded", 32)
+    detail: httpAnswered
+      ? clip(http!.finalUrl || "final URL not recorded", 32)
       : "no response captured",
-    confidence: http ? "observed" : "unknown",
+    confidence: httpAnswered ? "observed" : "unknown",
     status: httpStatus,
     evidenceIds: evidenceIds(investigation, "http"),
   });
@@ -984,7 +1015,7 @@ export function buildInfrastructureGraph(investigation: Investigation): Infrastr
     });
   }
 
-  if (http) {
+  if (httpAnswered) {
     edges.push({ id: "url-http", from: "url", to: "http", label: "requested", kind: "request" });
   }
 
@@ -1012,7 +1043,7 @@ export function buildInfrastructureGraph(investigation: Investigation): Infrastr
     });
   }
 
-  if (technologies.length > 0 && http) {
+  if (technologies.length > 0 && httpAnswered) {
     edges.push({
       id: "http-technology",
       from: "http",

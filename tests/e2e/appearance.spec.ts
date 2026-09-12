@@ -1,9 +1,9 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page, type Locator } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import {
-  BODY_MIN_PX, BODY_SELECTORS, META_MIN_PX, META_SELECTORS,
-  dialogBox, documentOverflow, formatViolations, mockInvestigation, runInvestigation,
-  settledDialog, textSizes, theme, themeToggle, tooSmall,
+  BODY_MIN_PX, BODY_SELECTORS, DATA_MIN_PX, DATA_SELECTORS, META_MIN_PX, META_SELECTORS,
+  dialogBox, documentOverflow, formatViolations, matchedSelectors, mockInvestigation,
+  openDisclosures, runInvestigation, settledDialog, textSizes, theme, themeToggle, tooSmall,
 } from "./appearance-fixture";
 
 const CENTER_TOLERANCE = 3;
@@ -21,6 +21,17 @@ const dialogCases: DialogCase[] = [
   { title: "Share the starting point.", needsResult: true, open: (page) => page.getByRole("button", { name: "Share" }).click() },
 ];
 
+// Every layer of the detail drawer, addressed through the switcher inside it.
+const layerTabs = [
+  { tab: "URL", title: "The URL" },
+  { tab: "DNS", title: "DNS resolution" },
+  { tab: "HTTP", title: "The response" },
+  { tab: "TLS", title: "TLS certificate" },
+  { tab: "NETWORK", title: "IP & network" },
+  { tab: "Edge", title: "Edge & hosting" },
+  { tab: "Tech", title: "Technologies" },
+];
+
 async function openCase(page: Page, dialogCase: DialogCase) {
   await dialogCase.open(page);
   const dialog = await settledDialog(page);
@@ -33,6 +44,21 @@ async function openCase(page: Page, dialogCase: DialogCase) {
 async function closeActive(page: Page) {
   await page.keyboard.press("Escape");
   await expect(page.locator("dialog[open]")).toHaveCount(0);
+}
+
+/** Switches the open detail drawer to one layer and waits for its entrance. */
+async function selectLayer(page: Page, dialog: Locator, tab: string, title: string) {
+  await dialog.getByRole("button", { name: tab, exact: true }).click();
+  await expect(page.getByRole("dialog", { name: title })).toBeVisible();
+  await settledDialog(page);
+}
+
+/** The overview keeps the full story behind a button; open it when it is there. */
+async function revealFullStory(page: Page) {
+  const showAll = page.getByRole("button", { name: /Show all findings/i });
+  if (await showAll.count() === 0) return;
+  await showAll.first().click();
+  await expect(page.locator(".story-finding").first()).toBeVisible();
 }
 
 test.describe("theme", () => {
@@ -166,14 +192,21 @@ test("Escape closes the dialog and restores the opener and the page scroll", asy
   expect(Math.abs(await page.evaluate(() => window.scrollY) - scrollBefore)).toBeLessThanOrEqual(CENTER_TOLERANCE);
 });
 
+// Runs in both projects, so the mobile viewport is held to the same floors as
+// the desktop one: a responsive rule may not shrink type below them.
 test("text stays legible and nothing overflows sideways", async ({ page }) => {
   await mockInvestigation(page);
   await page.goto("/");
 
   const small: string[] = [];
+  const matched = new Set<string>();
   const collect = async (state: "landing" | "result" | "dialog") => {
-    small.push(...tooSmall(await textSizes(page, BODY_SELECTORS[state]), BODY_MIN_PX));
-    small.push(...tooSmall(await textSizes(page, META_SELECTORS[state]), META_MIN_PX));
+    const body = BODY_SELECTORS[state], meta = META_SELECTORS[state];
+    const data = state === "landing" ? [] : DATA_SELECTORS[state];
+    small.push(...tooSmall(await textSizes(page, body), BODY_MIN_PX));
+    small.push(...tooSmall(await textSizes(page, meta), META_MIN_PX));
+    if (data.length) small.push(...tooSmall(await textSizes(page, data), DATA_MIN_PX));
+    for (const selector of await matchedSelectors(page, [...body, ...meta, ...data])) matched.add(selector);
   };
   const noSideScroll = async (where: string) => {
     const overflow = await documentOverflow(page);
@@ -184,14 +217,32 @@ test("text stays legible and nothing overflows sideways", async ({ page }) => {
   await noSideScroll("landing");
 
   await runInvestigation(page);
+  await revealFullStory(page);
   await collect("result");
   await noSideScroll("result");
 
-  await openCase(page, dialogCases[2]);
-  await collect("dialog");
+  // Every layer, with its disclosures expanded, so the tables, header lists and
+  // provenance rows are measured rather than skipped as hidden.
+  const dialog = await openCase(page, dialogCases[2]);
+  for (const { tab, title } of layerTabs) {
+    await selectLayer(page, dialog, tab, title);
+    await openDisclosures(dialog);
+    await collect("dialog");
+  }
   await closeActive(page);
 
+  for (const dialogCase of [dialogCases[0], dialogCases[1], dialogCases[4], dialogCases[5]]) {
+    await openCase(page, dialogCase);
+    await collect("dialog");
+    await closeActive(page);
+  }
+
   expect(small).toEqual([]);
+  // A pass has to come from measurements that happened: these are the selectors
+  // whose absence would make the whole check vacuous.
+  for (const selector of [".detail-intro", "table td", "th", ".definition-list dt", ".raw-details > summary", ".progress-stage", ".graph-legend span", ".evidence-provenance"]) {
+    expect([...matched], `${selector} never matched, so its floor was never checked`).toContain(selector);
+  }
 });
 
 test("narrow laptop widths keep the layout and the prose intact", async ({ page }, testInfo) => {
@@ -206,9 +257,11 @@ test("narrow laptop widths keep the layout and the prose intact", async ({ page 
     expect(tooSmall(await textSizes(page, BODY_SELECTORS.landing), BODY_MIN_PX)).toEqual([]);
 
     await runInvestigation(page);
+    await revealFullStory(page);
     overflow = await documentOverflow(page);
     expect(overflow.scrollWidth, `result at ${width}px scrolls sideways`).toBeLessThanOrEqual(overflow.clientWidth + 1);
     expect(tooSmall(await textSizes(page, BODY_SELECTORS.result), BODY_MIN_PX)).toEqual([]);
+    expect(tooSmall(await textSizes(page, META_SELECTORS.result), META_MIN_PX), `metadata at ${width}px`).toEqual([]);
 
     const dialog = await openCase(page, dialogCases[0]);
     const box = await dialogBox(dialog);
@@ -222,30 +275,47 @@ test.describe("contrast", () => {
   // scanned as a contrast failure.
   test.use({ reducedMotion: "reduce" });
 
-  test("light and soft dark pass colour contrast on the landing, a result and a dialog", async ({ page }) => {
+  test("light and soft dark pass colour contrast on the landing, a result and every detail layer", async ({ page }) => {
     await mockInvestigation(page);
     await page.goto("/");
-    const scan = (label: string, include?: string) => {
-      const builder = new AxeBuilder({ page }).withRules(["color-contrast"]);
-      if (include) builder.include(include);
-      return builder.analyze().then((results) => formatViolations(label, results));
-    };
 
     const findings: string[] = [];
-    findings.push(...await scan("landing light"));
+    const scan = async (label: string, include?: string) => {
+      const builder = new AxeBuilder({ page }).withRules(["color-contrast"]);
+      if (include) builder.include(include);
+      findings.push(...formatViolations(label, await builder.analyze()));
+    };
+    const scanLayers = async (label: string) => {
+      const dialog = await openCase(page, dialogCases[2]);
+      for (const { tab, title } of layerTabs) {
+        await selectLayer(page, dialog, tab, title);
+        await openDisclosures(dialog);
+        await scan(`${label} ${title} dialog`, "dialog[open]");
+      }
+      await closeActive(page);
+      for (const dialogCase of [dialogCases[4], dialogCases[5], dialogCases[1]]) {
+        await openCase(page, dialogCase);
+        await scan(`${label} ${dialogCase.title} dialog`, "dialog[open]");
+        await closeActive(page);
+      }
+    };
+
+    await scan("landing light");
+    await themeToggle(page, "dark").click();
+    await expect.poll(() => theme(page)).toBe("dark");
+    await scan("landing soft dark");
+    await themeToggle(page, "light").click();
+    await expect.poll(() => theme(page)).toBe("light");
+
+    await runInvestigation(page);
+    await revealFullStory(page);
+    await scan("result light");
+    await scanLayers("light");
 
     await themeToggle(page, "dark").click();
     await expect.poll(() => theme(page)).toBe("dark");
-    findings.push(...await scan("landing soft dark"));
-
-    await themeToggle(page, "light").click();
-    await expect.poll(() => theme(page)).toBe("light");
-    await runInvestigation(page);
-    findings.push(...await scan("result light"));
-
-    await openCase(page, dialogCases[1]);
-    findings.push(...await scan("privacy dialog light", "dialog[open]"));
-    await closeActive(page);
+    await scan("result soft dark");
+    await scanLayers("soft dark");
 
     expect(findings).toEqual([]);
   });

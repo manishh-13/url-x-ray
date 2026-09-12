@@ -578,3 +578,240 @@ describe("buildInfrastructureGraph", () => {
     expect(graph.edges.map((edge) => edge.id)).toContain("infer-http-infrastructure");
   });
 });
+
+describe("certificate name coverage with real provider SAN shapes", () => {
+  it("accepts a SAN list carrying the DNS: type prefix", () => {
+    const investigation = baseInvestigation();
+    investigation.tls!.subject = "CN=edge.example.net";
+    investigation.tls!.sans = ["DNS:shop.example.com", "DNS:www.shop.example.com"];
+    expect(finding(investigation, "finding-tls-name-coverage")).toBeUndefined();
+  });
+
+  it("accepts a prefixed wildcard SAN as covering the hostname", () => {
+    const investigation = baseInvestigation();
+    investigation.tls!.subject = "CN=*.example.com";
+    investigation.tls!.sans = ["DNS:*.example.com", "DNS:example.com"];
+    expect(finding(investigation, "finding-tls-name-coverage")).toBeUndefined();
+  });
+
+  it("accepts an IP Address SAN for an IP literal URL", () => {
+    const investigation = baseInvestigation();
+    investigation.url.hostname = "203.0.113.10";
+    investigation.tls!.hostname = "203.0.113.10";
+    investigation.tls!.subject = "CN=edge.example.net";
+    investigation.tls!.sans = ["IP Address:203.0.113.10", "DNS:edge.example.net"];
+    expect(finding(investigation, "finding-tls-name-coverage")).toBeUndefined();
+  });
+
+  it("still flags a real mismatch and lists the SAN names without their prefixes", () => {
+    const investigation = baseInvestigation();
+    investigation.tls!.subject = "CN=other.example.net";
+    investigation.tls!.sans = ["DNS:other.example.net", "DNS:*.other.example.net"];
+    const coverage = finding(investigation, "finding-tls-name-coverage");
+    expect(coverage?.description).toContain("shop.example.com does not appear");
+    expect(coverage?.description).toContain("other.example.net, *.other.example.net");
+    expect(coverage?.description).not.toContain("DNS:");
+  });
+
+  it("prefers the SAN list over the common name when SANs are present", () => {
+    const investigation = baseInvestigation();
+    investigation.tls!.subject = "CN=shop.example.com";
+    investigation.tls!.sans = ["DNS:other.example.net"];
+    const coverage = finding(investigation, "finding-tls-name-coverage");
+    expect(coverage?.description).toContain("1 name");
+    expect(coverage?.description).toContain("other.example.net");
+  });
+
+  it("falls back to the common name when the certificate carries no SAN", () => {
+    const investigation = baseInvestigation();
+    investigation.tls!.subject = "CN=shop.example.com, O=Example";
+    investigation.tls!.sans = [];
+    expect(finding(investigation, "finding-tls-name-coverage")).toBeUndefined();
+    investigation.tls!.subject = "CN=other.example.net";
+    expect(finding(investigation, "finding-tls-name-coverage")?.description).toContain(
+      "other.example.net",
+    );
+  });
+});
+
+describe("DNS status wording", () => {
+  it("pluralizes addresses correctly", () => {
+    const investigation = baseInvestigation();
+    investigation.dns!.addresses = ["203.0.113.10", "203.0.113.11"];
+    expect(finding(investigation, "finding-dns-addresses")?.title).toBe(
+      "2 addresses returned for shop.example.com",
+    );
+    expect(buildInfrastructureGraph(investigation).nodes.find((node) => node.id === "dns")?.label).toBe(
+      "2 addresses",
+    );
+    investigation.dns!.addresses = ["203.0.113.10"];
+    expect(finding(investigation, "finding-dns-addresses")?.title).toBe(
+      "1 address returned for shop.example.com",
+    );
+  });
+
+  it("does not report an answered question with a record count as a failure", () => {
+    const investigation = baseInvestigation();
+    investigation.dns!.queryStatus = {
+      A: "NOERROR, 2 records",
+      AAAA: "NOERROR, no records",
+      TXT: "NXDOMAIN",
+    };
+    expect(finding(investigation, "finding-dns-partial")).toBeUndefined();
+  });
+
+  it("does not report skipped queries on an IP literal as a failure", () => {
+    const investigation = baseInvestigation();
+    investigation.dns!.queryStatus = { A: "not applicable", AAAA: "not applicable" };
+    expect(finding(investigation, "finding-dns-partial")).toBeUndefined();
+  });
+
+  it("does not call the hostname absent when only an optional type is NXDOMAIN", () => {
+    const investigation = baseInvestigation();
+    investigation.dns!.addresses = [];
+    investigation.dns!.records = [
+      { type: "MX", name: "example.com", value: "10 mail.example.com", ttl: 300 },
+    ];
+    investigation.dns!.queryStatus = {
+      A: "NOERROR, no records",
+      AAAA: "NOERROR, no records",
+      TXT: "NXDOMAIN",
+      NS: "NXDOMAIN",
+    };
+    expect(finding(investigation, "finding-dns-nxdomain")).toBeUndefined();
+    expect(finding(investigation, "finding-dns-no-address")).toBeDefined();
+  });
+});
+
+describe("SAN types that are not names", () => {
+  it("never treats an email SAN as covering the hostname, falling back to the common name", () => {
+    const investigation = baseInvestigation();
+    investigation.tls!.subject = "CN=shop.example.com";
+    investigation.tls!.sans = ["email:example.com"];
+    expect(finding(investigation, "finding-tls-name-coverage")).toBeUndefined();
+    investigation.tls!.subject = "CN=other.example.net";
+    const coverage = finding(investigation, "finding-tls-name-coverage");
+    expect(coverage?.description).toContain("shop.example.com does not appear");
+    expect(coverage?.description).toContain("other.example.net");
+  });
+
+  it("never treats a URI SAN as covering the hostname", () => {
+    const investigation = baseInvestigation();
+    investigation.tls!.subject = "CN=edge.example.net";
+    investigation.tls!.sans = ["URI:shop.example.com", "URI:https://shop.example.com/"];
+    const coverage = finding(investigation, "finding-tls-name-coverage");
+    expect(coverage?.description).toContain("shop.example.com does not appear");
+    expect(coverage?.description).toContain("edge.example.net");
+  });
+
+  it("ignores othername and DirName entries while honouring the DNS entries beside them", () => {
+    const investigation = baseInvestigation();
+    investigation.tls!.subject = "CN=edge.example.net";
+    investigation.tls!.sans = [
+      "othername:shop.example.com",
+      "DirName:CN=shop.example.com",
+      "DNS:shop.example.com",
+    ];
+    expect(finding(investigation, "finding-tls-name-coverage")).toBeUndefined();
+  });
+
+  it("flags a mismatch when the DNS SAN misses even though the common name matches", () => {
+    const investigation = baseInvestigation();
+    investigation.tls!.subject = "CN=shop.example.com";
+    investigation.tls!.sans = ["DNS:other.example.net", "email:hostmaster@example.net"];
+    const coverage = finding(investigation, "finding-tls-name-coverage");
+    expect(coverage?.description).toContain("shop.example.com does not appear");
+    expect(coverage?.description).toContain("1 name");
+    expect(coverage?.description).toContain("other.example.net");
+    expect(coverage?.description).not.toContain("hostmaster");
+  });
+
+  it("uses the common name when the SAN list is blank or empty", () => {
+    const investigation = baseInvestigation();
+    investigation.tls!.subject = "CN=shop.example.com";
+    investigation.tls!.sans = ["", "   "];
+    expect(finding(investigation, "finding-tls-name-coverage")).toBeUndefined();
+    investigation.tls!.subject = "CN=other.example.net";
+    expect(finding(investigation, "finding-tls-name-coverage")?.description).toContain(
+      "other.example.net",
+    );
+  });
+
+  it("says nothing about coverage when neither a name SAN nor a common name exists", () => {
+    const investigation = baseInvestigation();
+    investigation.tls!.subject = "O=Example";
+    investigation.tls!.sans = ["email:hostmaster@example.net"];
+    expect(finding(investigation, "finding-tls-name-coverage")).toBeUndefined();
+  });
+});
+
+describe("HTTP layer when nothing was received", () => {
+  /** Exactly what httpProvider returns when no hop completed: no hops, status 0. */
+  function noResponseInvestigation(): Investigation {
+    const investigation = baseInvestigation();
+    investigation.http = {
+      hops: [],
+      finalUrl: "https://shop.example.com/cart",
+      finalStatus: 0,
+      redirectCount: 0,
+      chainComplete: false,
+      stoppedReason: "shop.example.com could not be resolved, so no connection was attempted.",
+      headerSignals: [
+        {
+          name: "strict-transport-security",
+          title: "HSTS",
+          state: "unknown",
+          explanation: "not determined",
+        },
+        { name: "content-security-policy", title: "CSP", state: "unknown", explanation: "not determined" },
+      ],
+      durationMs: 12,
+    };
+    investigation.providers.http = {
+      status: "unavailable",
+      message: "shop.example.com could not be resolved, so no connection was attempted.",
+    };
+    return investigation;
+  }
+
+  it("reports the layer unavailable with the recorded reason", () => {
+    const investigation = noResponseInvestigation();
+    const list = ids(interpretInvestigation(investigation));
+    expect(list).toContain("finding-http-unavailable");
+    expect(list).not.toContain("finding-http-outcome");
+    expect(list).not.toContain("finding-http-chain-incomplete");
+    expect(list).not.toContain("finding-http-redirects");
+    expect(list).not.toContain("finding-http-headers");
+    const unavailable = finding(investigation, "finding-http-unavailable");
+    expect(unavailable?.confidence).toBe("unknown");
+    expect(unavailable?.description).toContain("could not be resolved");
+  });
+
+  it("uses the stopped reason when the provider recorded no message", () => {
+    const investigation = noResponseInvestigation();
+    investigation.providers.http = { status: "unavailable" };
+    expect(finding(investigation, "finding-http-unavailable")?.description).toContain(
+      "no connection was attempted",
+    );
+  });
+
+  it("never invents an observed status 0 or a request edge in the graph", () => {
+    const graph = buildInfrastructureGraph(noResponseInvestigation());
+    const node = graph.nodes.find((item) => item.id === "http");
+    expect(node?.label).toBe("unknown");
+    expect(node?.detail).toBe("no response captured");
+    expect(node?.confidence).toBe("unknown");
+    expect(graph.edges.map((edge) => edge.id)).not.toContain("url-http");
+    expect(graph.edges.map((edge) => edge.id)).not.toContain("http-technology");
+  });
+
+  it("still reports a real response that stopped mid chain as an incomplete chain", () => {
+    const investigation = baseInvestigation();
+    investigation.http!.chainComplete = false;
+    investigation.http!.stoppedReason = "the redirect limit was reached";
+    const list = ids(interpretInvestigation(investigation));
+    expect(list).toContain("finding-http-outcome");
+    expect(list).toContain("finding-http-chain-incomplete");
+    expect(list).not.toContain("finding-http-unavailable");
+  });
+});

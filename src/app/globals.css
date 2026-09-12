@@ -481,7 +481,7 @@ td code { color: var(--text-soft); margin-top: 4px; }
 .certificate-timeline { margin: 27px 0; }
 .certificate-timeline > div { height: 1px; background: var(--line-strong); position: relative; }
 .certificate-timeline i { position: absolute; height: 1px; background: var(--accent-soft); }
-.certificate-timeline span { position: absolute; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); top: -3px; transform: translateX(-50%); }
+.certificate-timeline > div > span { position: absolute; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); top: -3px; transform: translateX(-50%); }
 .certificate-timeline p { display: flex; justify-content: space-between; color: var(--muted-dim); font: .45rem var(--font-mono); }
 .san-list { display: flex; flex-wrap: wrap; gap: 6px; }
 .san-list code { padding: 6px 8px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); font: .55rem var(--font-mono); overflow-wrap: anywhere; }
@@ -686,7 +686,11 @@ td code { color: var(--text-soft); margin-top: 4px; }
 }
 
 
-/* Readability and theme layer. Keeps the original geometry and motion. */
+/* Readability and theme layer. Keeps the original geometry and motion.
+   Floors held here: supporting metadata >= .75rem (12px), prose >= .9375rem
+   (15px, usually .95rem), and table or code data >= .8125rem (13px). Responsive
+   blocks below never drop under those floors, so nothing is hidden or clipped
+   to make room. */
 html { background: var(--bg); color-scheme: light; }
 html[data-theme="dark"] { color-scheme: dark; }
 body { line-height: 1.62; letter-spacing: -.006em; }
@@ -699,16 +703,16 @@ body { line-height: 1.62; letter-spacing: -.006em; }
 .site-header nav .theme-toggle { min-width: 74px; min-height: 38px; justify-content: center; padding: 0 12px !important; border: 1px solid var(--line-strong) !important; border-radius: 999px; background: var(--surface-raised) !important; color: var(--text-soft) !important; transition: none; }
 .site-header nav .theme-toggle span { color: inherit; }
 .theme-toggle:hover { border-color: var(--line-bright) !important; color: var(--text) !important; }
-.brand small, .private-build, .site-footer > p, .eyebrow, .hero-eyebrow, .schematic-topline, .schematic-foot, .result-eyebrow, .workbench-breadcrumb, .progress-stage, .parse-label, .parse-check, .depth-selector > span, .map-topline, .graph-legend, .map-controls, .map-scope, .layer-rail > span, .confidence, .keyboard-hints, .observation-scope > span, .record-type, .evidence-provenance, .layer-switcher button, .definition-list dt, th, .http-status, .technology-category { letter-spacing: .07em; }
+.brand small, .private-build, .site-footer > p, .eyebrow, .hero-eyebrow, .schematic-topline, .schematic-foot, .result-eyebrow, .workbench-breadcrumb, .progress-stage, .parse-label, .parse-check, .depth-selector > span, .map-topline, .graph-legend, .map-controls, .layer-rail > span, .confidence, .keyboard-hints, .observation-scope > span, .record-type, .evidence-provenance, .layer-switcher button, .definition-list dt, th, .http-status, .technology-category { letter-spacing: .07em; }
 .eyebrow, .hero-eyebrow { font-size: .75rem; font-weight: 620; }
 .brand { font-size: .86rem; }
 .brand small { font-size: .75rem; }
-.private-build { font-size: .68rem; }
+.private-build { font-size: .75rem; }
 .site-footer { font-size: .82rem; }
 .site-footer > p { font-size: .75rem; }
 .primary-button, .secondary-button { font-size: .9rem; min-height: 44px; }
 .text-button { font-size: .86rem; }
-.form-error, .result-notice { font-size: .9rem; }
+.form-error, .result-notice { font-size: .95rem; }
 .hero::before { background: radial-gradient(ellipse, var(--hero-glow), transparent 69%); }
 .hero-eyebrow { color: var(--muted); }
 .hero h1 { font-weight: 560; letter-spacing: -.055em; }
@@ -723,164 +727,194 @@ body { line-height: 1.62; letter-spacing: -.006em; }
 .input-privacy { color: var(--muted-dim); font-size: .75rem; }
 .landing-instrument { background: linear-gradient(180deg, var(--surface), var(--surface-soft)); box-shadow: 0 18px 50px var(--shadow); }
 .landing-instrument::before, .landing-instrument::after { border-color: var(--line-bright); }
-.schematic-topline, .schematic-foot { color: var(--muted); font-size: .66rem; }
+.schematic-topline, .schematic-foot { color: var(--muted); font-size: .75rem; }
 .small-dot { box-shadow: 0 0 7px color-mix(in srgb, var(--accent) 35%, transparent); }
 .svg-tiny { font-size: 10px; }
 .svg-node-title { font-size: 15px; font-weight: 560; }
 .is-previewing .concept-node-url rect { fill: var(--node-root); }
 .how-intro h2, .opening-instrument h1, .shared-entry h1, .standalone-error h1, .result-title-row h1, .story-panel > h2, .evidence-workspace-intro h2, .network-workspace h2, .dialog-header h2 { font-weight: 580; }
 .how-intro p { font-size: 1rem; }
-.step-index span { font-size: .72rem; }
+.step-index span { font-size: .75rem; }
 .how-step h3 { font-size: 1.14rem; font-weight: 620; }
-.how-step p { font-size: .94rem; }
+.how-step p { font-size: .95rem; }
 .honesty-line p { font-size: .96rem; }
 .honesty-line p span { font-size: .88rem; }
 .opening-instrument p { font-size: .78rem; }
-.workbench-breadcrumb { font-size: .72rem; }
-.result-eyebrow { font-size: .7rem; }
+.workbench-breadcrumb { font-size: .75rem; }
+.result-eyebrow { font-size: .75rem; flex-wrap: wrap; row-gap: 4px; }
 .status-light.active { box-shadow: 0 0 8px color-mix(in srgb, var(--observed) 35%, transparent); }
 .relationship-count { font-size: .95rem; }
-.progress-stage { color: var(--muted); font-size: .66rem; }
+/* Six stages keep their columns; the labels wrap instead of being truncated or
+   shrunk once the mono type is legible. */
+.investigation-progress { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.progress-stage { color: var(--muted); font-size: .76rem; min-width: 0; white-space: normal; line-height: 1.35; padding: 7px 9px; }
+.progress-stage > span { min-width: 0; }
+.progress-stage > svg { flex: 0 0 auto; }
 .progress-stage.complete { color: var(--observed); }
 .progress-stage.unavailable { color: var(--unknown); }
 .parsing-active::after { background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 7%, transparent), transparent); }
-.parse-label { font-size: .68rem; }
+.parse-label { font-size: .75rem; }
 .url-part code { font-size: .95rem; }
-.url-part span, .query-removed small { font-size: .63rem; }
-.query-removed > span { font-size: .74rem; }
-.parse-check { color: var(--observed); font-size: .65rem; }
+.url-part span, .query-removed small { font-size: .75rem; }
+.query-removed > span { font-size: .78rem; }
+.parse-check { color: var(--observed); font-size: .75rem; }
 .depth-toolbar { background: color-mix(in srgb, var(--bg) 95%, transparent); }
-.depth-selector > span { font-size: .63rem; }
-.depth-selector button { color: var(--muted); font-size: .8rem; }
-.depth-selector button > span, .depth-selector button small { font-size: .62rem; }
+.depth-selector > span { font-size: .75rem; }
+.depth-selector button { color: var(--muted); font-size: .82rem; min-width: 136px; }
+.depth-selector button > span, .depth-selector button small { font-size: .75rem; }
 .depth-selector button[aria-pressed="true"] { color: var(--accent-soft); }
-.methodology-link { font-size: .78rem; }
-.map-topline { color: var(--muted); font-size: .64rem; }
+.methodology-link { font-size: .82rem; }
+.map-topline { color: var(--muted); font-size: .75rem; }
 .map-viewport { background: radial-gradient(circle at 25% 45%, var(--atmosphere), transparent 34%), var(--bg-deep); }
 .map-grid { background-image: radial-gradient(circle, var(--map-grid) 1px, transparent 1px); }
 .map-grid::before, .map-grid::after { background: var(--map-axis); }
 .scan-beam { background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--accent) 5%, transparent), color-mix(in srgb, var(--accent) 13%, transparent), transparent); border-bottom-color: color-mix(in srgb, var(--accent) 18%, transparent); }
+/* SVG text scales with the graph viewBox, so it is left at its authored size:
+   raising it here would collide with the fixed node and edge geometry. */
 .edge-label { fill: var(--muted); font-size: 9px; }
 .graph-node { border-color: var(--line-strong); background: var(--node); box-shadow: 0 10px 24px var(--shadow); }
 .graph-node::before, .graph-node::after { border-color: var(--line-bright); }
 .graph-node:hover, .graph-node:focus-visible { border-color: var(--accent); background: var(--node-hover); }
 .root-node .graph-node { border-color: var(--accent); background: var(--node-root); box-shadow: 0 0 30px color-mix(in srgb, var(--accent) 8%, transparent); }
 .node-investigating::after { background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 7%, transparent), transparent); }
-.node-top { font-size: .63rem; }
+.node-top { font-size: .75rem; gap: 8px; min-width: 0; }
+.node-top > span:first-child { min-width: 0; }
 .graph-node strong { font-size: .92rem; font-weight: 620; }
 .graph-node .node-detail { color: var(--muted); font-size: .76rem; }
 .node-tooltip, .node-tooltip::before { background: var(--tooltip); border-color: var(--line-strong); }
-.node-tooltip { box-shadow: 0 12px 30px var(--shadow-strong); }
-.node-tooltip > span:not(.confidence) { font-size: .78rem; }
-.node-tooltip small { font-size: .64rem; }
-.map-empty { font-size: .86rem; }
-.graph-legend { color: var(--muted); font-size: .62rem; }
+.node-tooltip { box-shadow: 0 12px 30px var(--shadow-strong); width: 232px; }
+.node-tooltip > span:not(.confidence) { font-size: .82rem; }
+.node-tooltip small { font-size: .75rem; line-height: 1.45; }
+.map-empty { font-size: .95rem; }
+.map-bottomline { flex-wrap: wrap; gap: 4px 12px; padding-block: 5px; }
+.graph-legend { color: var(--muted); font-size: .75rem; flex-wrap: wrap; gap: 6px 16px; min-width: 0; }
 .graph-legend i, .graph-legend .dotted-key { background-color: var(--edge); }
 .graph-legend .dotted-key { background: repeating-linear-gradient(90deg, var(--edge) 0 2px, transparent 2px 5px); }
 .graph-legend .inferred-key { background: repeating-linear-gradient(90deg, var(--edge-inferred) 0 4px, transparent 4px 7px); }
-.map-controls { color: var(--muted); font-size: .62rem; }
-.map-scope { color: var(--muted); font-size: .66rem; }
-.layer-rail > span { color: var(--muted); font-size: .62rem; }
-.layer-rail button { color: var(--muted); font-size: .75rem; }
-.infrastructure-note p { font-size: .86rem; }
+.map-controls { color: var(--muted); font-size: .75rem; }
+.map-scope { color: var(--muted); font-size: .9375rem; }
+.layer-rail > span { color: var(--muted); font-size: .75rem; }
+.layer-rail button { color: var(--muted); font-size: .78rem; min-width: 0; padding-inline: 10px; line-height: 1.3; text-align: center; }
+.infrastructure-note p { font-size: .95rem; }
 .story-panel { background: var(--surface-soft); }
-.story-intro { font-size: .88rem; }
+.story-intro { font-size: .95rem; }
 .story-step-number { font-size: .75rem; }
+.story-panel, .story-finding, .story-finding > div { min-width: 0; }
+.story-finding h3, .story-finding p { overflow-wrap: anywhere; }
 .story-finding h3 { font-size: .98rem; font-weight: 620; }
 .story-finding p { color: var(--muted); font-size: .95rem; line-height: 1.62; }
-.story-inspect { color: var(--accent-soft); font-size: .8rem; font-weight: 600; }
-.story-listening { font-size: .66rem; }
+.story-inspect { color: var(--accent-soft); font-size: .82rem; font-weight: 600; }
+.story-listening { font-size: .75rem; }
 .story-bottom { background: var(--accent-wash); }
-.story-bottom p { font-size: .68rem; }
+.story-bottom p { font-size: .78rem; }
 .confidence { color: var(--muted); font-size: .75rem; }
 .confidence.compact { font-size: .75rem; }
-.keyboard-hints { color: var(--muted); font-size: .64rem; }
+.confidence-legend { flex-wrap: wrap; gap: 10px 16px; }
+.keyboard-hints { color: var(--muted); font-size: .75rem; flex-wrap: wrap; gap: 8px 14px; }
 kbd { border-bottom-color: var(--line-bright); }
-.observation-scope > span { font-size: .65rem; }
-.observation-scope p { color: var(--muted); font-size: .84rem; }
+.observation-scope > span { font-size: .75rem; line-height: 1.45; }
+.observation-scope p { color: var(--muted); font-size: .95rem; }
 .evidence-workspace-intro p { font-size: .95rem; }
 .evidence-totals strong span { font-size: .75rem; }
-.evidence-search input { font-size: .92rem; }
+.evidence-search input { font-size: .95rem; }
 .evidence-search > span { font-size: .75rem; }
 .evidence-item { background: var(--surface); }
-.evidence-label strong { font-size: .86rem; }
+.evidence-label strong { font-size: .9rem; }
 .record-type { color: var(--accent-soft); font-size: .75rem; }
-.evidence-value { font-size: .82rem; }
-.evidence-item > p { font-size: .84rem; }
-.evidence-provenance { font-size: .75rem; }
-.quiet-empty { font-size: .88rem; }
+.evidence-value { font-size: .84rem; }
+.evidence-item > p { font-size: .95rem; }
+.evidence-provenance { font-size: .75rem; flex-wrap: wrap; row-gap: 5px; }
+.quiet-empty { font-size: .95rem; }
 .instrument-dialog { position: fixed; inset: 0; margin: auto; color: var(--text); background: var(--dialog); border-color: var(--line-strong); box-shadow: 0 30px 90px var(--shadow-strong); }
 .instrument-dialog::backdrop { background: var(--backdrop); backdrop-filter: blur(5px); }
 .dialog-header { background: var(--dialog-header); }
 .dialog-header h2 { font-size: 1.62rem; }
-.layer-switcher button { color: var(--muted); font-size: .66rem; }
+.layer-switcher button { color: var(--muted); font-size: .75rem; }
 .detail-intro { font-size: .96rem; }
-.definition-list dt { font-size: .65rem; }
-.definition-list dd strong { font-size: .82rem; }
-.definition-list dd p { font-size: .85rem; }
+.definition-list > div { grid-template-columns: 152px minmax(0, 1fr); }
+.definition-list dt { font-size: .75rem; }
+.definition-list dd strong { font-size: .86rem; }
+.definition-list dd p { font-size: .95rem; }
 .scope-note { color: var(--muted); background: var(--accent-wash); font-size: .95rem; }
-.dns-record-types > span { color: var(--muted); font-size: .66rem; }
-.dns-record-types small { font-size: .6rem; }
-.cname-chain code { font-size: .82rem; }
-.cname-chain span { font-size: .64rem; }
-.raw-details > summary { font-size: .84rem; }
-.raw-details > summary span { font-size: .64rem; }
-table { font-size: .82rem; }
-th { font-size: .62rem; }
-td small, td code { font-size: .76rem; }
-.http-status { border-color: var(--line-bright); font-size: .66rem; }
+.dns-record-types > span { color: var(--muted); font-size: .78rem; min-width: 0; }
+.dns-record-types small { font-size: .75rem; }
+.cname-chain code { font-size: .84rem; }
+.cname-chain span { font-size: .75rem; }
+.raw-details > summary { font-size: .95rem; }
+.raw-details > summary span { font-size: .75rem; }
+table { font-size: .84rem; }
+th { font-size: .75rem; }
+td small, td code { font-size: .84rem; }
+.http-status { border-color: var(--line-bright); font-size: .75rem; }
 .status-warning { border-color: var(--danger); color: var(--danger); }
 .redirect-line { background: var(--line-strong); }
 .redirect-line svg { background: var(--dialog); }
-.hop-content > code { font-size: .82rem; }
-.hop-content > span, .hop-content > small { font-size: .66rem; }
-.hop-headers > summary { font-size: .76rem; }
-.header-values strong { font-size: .66rem; }
-.header-values code { font-size: .72rem; }
+.hop-content > code { font-size: .84rem; }
+.hop-content > span, .hop-content > small { font-size: .78rem; }
+.hop-headers > summary { font-size: .9375rem; }
+.header-values > div { grid-template-columns: 172px minmax(0, 1fr); }
+.header-values strong { font-size: .78rem; overflow-wrap: anywhere; }
+.header-values code { font-size: .84rem; }
 .detail-heading { font-size: 1rem; }
-.detail-heading span { font-size: .65rem; }
-.header-signals strong { font-size: .86rem; }
-.header-signals > div > div > span { font-size: .64rem; }
-.header-signals p { font-size: .84rem; }
-.header-signals code { font-size: .72rem; }
+.detail-heading span { font-size: .75rem; }
+.header-signals strong { font-size: .9rem; }
+.header-signals > div > div > span { font-size: .75rem; }
+.header-signals p { font-size: .95rem; }
+.header-signals code { font-size: .84rem; }
 .certificate-intro { border-color: var(--line-strong); }
 .certificate-intro h3 { font-size: 1.12rem; font-weight: 620; }
-.certificate-intro p { font-size: .85rem; }
-.certificate-timeline p { font-size: .62rem; }
-.san-list code { font-size: .72rem; }
-.chain-number { font-size: .64rem; }
-.certificate-chain strong { font-size: .84rem; }
-.certificate-chain p, .certificate-chain small { font-size: .76rem; }
-.network-address > summary code { font-size: .84rem; }
+.certificate-intro p { font-size: .95rem; }
+.certificate-timeline p { color: var(--muted); font-size: .75rem; gap: 12px; flex-wrap: wrap; }
+.san-list code { font-size: .84rem; }
+.chain-number { font-size: .75rem; }
+.certificate-chain strong { font-size: .88rem; }
+.certificate-chain p, .certificate-chain small { font-size: .95rem; }
+.network-address > summary code { font-size: .86rem; }
 .technology-detail h3 { font-weight: 620; }
-.technology-category { font-size: .64rem; }
-.technology-detail > p, .unknown-layer p, .history-empty p { font-size: .86rem; }
-.method-steps > div > span { font-size: .68rem; }
+.technology-category { font-size: .75rem; }
+.technology-detail > p, .unknown-layer p, .history-empty p { font-size: .95rem; }
+.method-steps > div > span { font-size: .75rem; }
 .method-steps h3 { font-size: 1rem; font-weight: 620; }
-.method-steps p { font-size: .86rem; }
-.confidence-explanations p { font-size: .8rem; }
-.privacy-sections h3 { font-size: .94rem; font-weight: 620; }
-.privacy-sections p { font-size: .84rem; }
-.privacy-end p { font-size: .68rem; }
+.method-steps p { font-size: .95rem; }
+.confidence-explanations p { font-size: .95rem; }
+.privacy-sections h3 { font-size: .96rem; font-weight: 620; }
+.privacy-sections p { font-size: .95rem; }
+.privacy-end p { font-size: .78rem; }
 .export-options strong { font-size: .9rem; }
-.export-options span { font-size: .8rem; }
-.share-field input { font-size: .82rem; }
-.toast { border-color: var(--line-strong); background: var(--toast); box-shadow: 0 15px 50px var(--shadow-strong); color: var(--text-soft); font-size: .84rem; }
+.export-options span { font-size: .9375rem; }
+.share-field input { font-size: .84rem; }
+.toast { border-color: var(--line-strong); background: var(--toast); box-shadow: 0 15px 50px var(--shadow-strong); color: var(--text-soft); font-size: .9375rem; }
+
+@media (max-width: 1100px) {
+  /* The narrow rail wraps its stage labels rather than shrinking them. */
+  .progress-stage { font-size: .76rem; }
+  .depth-selector button { min-width: 112px; }
+}
 
 @media (max-width: 860px) {
   .theme-toggle { min-width: 40px; width: 40px; padding: 0 !important; }
   .theme-toggle span { display: none; }
+  .site-header nav button { font-size: .82rem; }
+  /* Three stages per row here, as the base layout intends. */
+  .investigation-progress { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .progress-stage { font-size: .76rem; }
+  .depth-selector button { min-width: 116px; }
 }
 
 @media (max-width: 620px) {
   .site-header nav { gap: 12px; }
-  .site-header nav button { font-size: .76rem; }
+  .site-header nav button { font-size: .78rem; }
   .brand { font-size: .78rem; }
-  .url-field input { font-size: .9rem; }
+  .url-field input { font-size: .95rem; }
   .hero-description { font-size: .98rem; }
-  .progress-stage { font-size: .62rem; }
-  .depth-selector button { font-size: .72rem; }
-  .depth-selector button > span { font-size: .6rem; }
+  .investigation-progress { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .progress-stage { font-size: .75rem; min-height: 40px; }
+  .depth-selector button { font-size: .8rem; min-width: 108px; }
+  .depth-selector button > span { font-size: .75rem; }
+  .layer-rail button { min-width: 128px; }
+  /* Narrow label column and stacked header rows, as the base layout intends. */
+  .definition-list > div { grid-template-columns: 105px minmax(0, 1fr); gap: 13px; }
+  .header-values > div { grid-template-columns: minmax(0, 1fr); }
   .instrument-dialog, .instrument-dialog.dialog-wide { inset: auto 0 0 0; margin: 0; }
   .instrument-dialog::backdrop { background: var(--backdrop); }
 }

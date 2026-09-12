@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, useCallback } from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
+import { useMotionPreference } from "@/lib/client/use-motion-preference";
 import { Globe2, GitBranch, Network, Fingerprint, ArrowLeftRight, Code2, Cloud, CircleDot, Plus, Minus, Maximize2, Crosshair, ArrowUpRight } from "lucide-react";
 import type { GraphNode, InfrastructureGraph, Layer } from "@/lib/types";
 import { ConfidenceBadge } from "./primitives";
@@ -18,7 +19,7 @@ export function InfrastructureMap({ graph, running, onSelect, selectedLayer, det
   graph: InfrastructureGraph; running: boolean; onSelect: (node: GraphNode) => void; selectedLayer?: Layer | null; detail?: boolean; focusVersion?: number;
 }) {
   const id = useId().replace(/:/g, "");
-  const reduced = useReducedMotion();
+  const reduced = useMotionPreference();
   const viewport = useRef<HTMLDivElement>(null);
   const [mobile, setMobile] = useState(false);
   const [zoom, setZoom] = useState(1);

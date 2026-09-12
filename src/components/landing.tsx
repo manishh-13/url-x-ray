@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
+import { useMotionPreference } from "@/lib/client/use-motion-preference";
 import { ArrowRight, ArrowUpRight, CornerDownLeft, Globe2, ScanLine, Braces, Network, Fingerprint, Route } from "lucide-react";
 
 const examples = ["github.com", "cloudflare.com", "aws.amazon.com", "vercel.com"];
@@ -30,7 +31,7 @@ export function UrlForm({ onSubmit, compact = false, initialValue = "", busy = f
 }
 
 function ConceptSchematic({ hostname, preview }: { hostname: string; preview: boolean }) {
-  const reduced = useReducedMotion();
+  const reduced = useMotionPreference();
   const nodes = [
     { x: 100, y: 147, w: 215, title: hostname, sub: "THE ADDRESS", key: "url" },
     { x: 415, y: 76, w: 178, title: "DNS resolution", sub: "THE DIRECTIONS", key: "dns" },
@@ -78,7 +79,7 @@ function ConceptSchematic({ hostname, preview }: { hostname: string; preview: bo
 
 export function Landing({ onSubmit, error }: { onSubmit: (url: string) => void; error: string | null }) {
   const [preview, setPreview] = useState<string | null>(null);
-  const reduced = useReducedMotion();
+  const reduced = useMotionPreference();
   return <main id="main-content" className="landing">
     <section className="hero">
       <motion.div initial={reduced ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .65 }}>
@@ -108,6 +109,6 @@ export function Landing({ onSubmit, error }: { onSubmit: (url: string) => void; 
         ].map(({ icon: Icon, n, title, text }) => <div className="how-step" key={n}><div className="step-index"><Icon size={19} strokeWidth={1.3} /><span>{n}</span></div><div><h3>{title}</h3><p>{text}</p></div></div>)}
       </div>
     </section>
-    <section className="honesty-line"><Globe2 size={18} strokeWidth={1.2} /><p>Public information. Human understanding.<br /><span>No threat scores. No invented hosting claims. Just the evidence.</span></p><Route size={31} strokeWidth={.9} className="honesty-route" /></section>
+    <section className="honesty-line"><Globe2 size={18} strokeWidth={1.2} /><p>Public information. Human understanding.<br /><span>Explore a familiar website, follow a redirect, or discover something new.</span></p><Route size={31} strokeWidth={.9} className="honesty-route" /></section>
   </main>;
 }

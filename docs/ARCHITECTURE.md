@@ -28,6 +28,10 @@ readInvestigationStream()
 | `src/app/` | Page routes and the streaming investigation route | yes |
 | `src/lib/server/` | Guarded collection, provider orchestration, public network metadata, and evidence ledger | yes |
 | `src/lib/interpretation.ts` | Turns provider data into findings and graph relationships | yes |
+| `src/lib/dns-status.ts` | Classifies real DNS provider status text, separating successful empty answers, NXDOMAIN and unavailable queries | yes |
+| `src/lib/insights.ts` | Derives a request takeaway, evidence-based next checks, network groups and five short overview findings | yes |
+| `src/components/result-summary.tsx` | Displays the request takeaway and opens the relevant evidence layer | yes |
+| `src/components/layer-glossary.tsx` | Optional plain-language definitions within each detail panel | yes |
 | `src/lib/export.ts` | Creates sanitized JSON and self-contained SVG reports | yes |
 
 ## The event stream
@@ -94,9 +98,15 @@ Anything interpretive, a `Finding`, a `Technology`, an `InfrastructureGuess`, or
 claim can be expanded to the raw observation behind it, and an inference with no supporting evidence is
 a bug, not a display choice.
 
-`ProviderState` is `pending`, `investigating`, `complete`, or `unavailable`. `unavailable` is a normal
-outcome, not an error: a host with no AAAA record or an unreachable port is information, and the graph
-renders it as such rather than failing the run.
+`ProviderState` is `pending`, `investigating`, `complete`, or `unavailable`. An unavailable provider leaves the rest of the observation usable. A successful DNS query with no AAAA records is still an answered query; a resolver timeout is unavailable, and NXDOMAIN is a recorded name-not-found answer.
+
+## Readable overview and next checks
+
+The full interpretation and raw evidence remain available. Overview uses `buildOverviewFindings()` to show one short finding for each main layer. `groupNetworkAddresses()` groups only matching ASNs, retaining each address and prefix; unknown ASNs remain separate.
+
+`buildTakeaway()` uses the captured observation, not the current wall clock. A successful HTTP response is described as success for that request, never as overall site health. Unfinished streams stay neutral, a zero-hop request is not a failed redirect chain, and certificate dates are compared with `startedAt`. Suggested checks are labelled separately from observations and link to the corresponding detail panel. Query removal remains visible because it can change the response.
+
+The DNS integration tests run the real provider against an injected resolver and pass its actual output into the interpreter. Summary unit tests cover success, missing data, DNS failure, HTTP errors, certificate validity and interrupted runs. Browser tests cover expansion, glossary controls, next-check links and detailed readability in both themes.
 
 ## The graph
 

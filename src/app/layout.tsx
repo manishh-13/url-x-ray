@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import "./insights.css";
 
 export const metadata: Metadata = {
   title: "URL X-Ray | See what’s behind a URL",

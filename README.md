@@ -2,11 +2,11 @@
 
 An evidence-first, interactive map of the public Internet infrastructure behind a URL.
 
-Paste a URL, and the instrument runs a live investigation: it resolves the hostname, follows the
-redirect chain, reads the response headers, inspects the TLS certificate, and looks up the network
-that owns the answering IP addresses. Every claim it renders is labelled **observed**, **inferred**,
-or **unknown**, and links back to the piece of evidence it came from. Nothing is presented as fact
-because it looks plausible.
+A small project for curious people and anyone investigating a public URL. Paste an address to see its DNS records, redirects, response headers, certificate and network connections come together.
+
+Start with **What happened**, a short takeaway about this request. When the evidence shows a problem, **What to check next** points to the relevant details. Overview keeps the story to five findings; **Show all findings** opens the full explanation, and every layer has an optional plain-language glossary.
+
+Observed facts and inferred platform hints stay labelled, with the collected evidence a click away. Light mode is the default; a softer dark theme is available for the current visit.
 
 > **Private, unreleased project.** This repository is not published, not licensed for use outside the
 > project, and not hardened for multi-tenant or production hosting. See [LICENSE](LICENSE) and
