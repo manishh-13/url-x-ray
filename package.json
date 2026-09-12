@@ -1,0 +1,39 @@
+{
+  "name": "url-x-ray",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "An evidence-first, interactive map of the public Internet infrastructure behind a URL.",
+  "scripts": {
+    "dev": "next dev --hostname 127.0.0.1 --port 3099",
+    "build": "next build",
+    "start": "next start --hostname 127.0.0.1 --port 3099",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "check": "npm run typecheck && npm test && npm run build"
+  },
+  "dependencies": {
+    "@fontsource-variable/instrument-sans": "latest",
+    "@fontsource/ibm-plex-mono": "latest",
+    "ipaddr.js": "latest",
+    "lucide-react": "1.45.0",
+    "motion": "13.2.0",
+    "next": "16.3.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "latest",
+    "@playwright/test": "1.63.0",
+    "@tailwindcss/postcss": "latest",
+    "@types/node": "^24",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "tailwindcss": "latest",
+    "typescript": "latest",
+    "vitest": "5.0.0"
+  },
+  "engines": { "node": ">=22" }
+}
