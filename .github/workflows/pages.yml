@@ -1,0 +1,105 @@
+name: Deploy static shell to GitHub Pages
+
+# Deployment is off unless the repository variable ENABLE_PAGES is "true", the
+# repository is public, and the run is on main. Nothing here publishes source or
+# a package, and no job can deploy from a local machine.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  build:
+    name: typecheck, unit tests, static export
+    # Pages from a private repository needs a paid plan, so a private repository
+    # is skipped to keep this project free to run.
+    if: ${{ vars.ENABLE_PAGES == 'true' && github.event.repository.private == false && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Reading the Pages configuration is all this job needs. Writing the site is
+    # the deploy job's privilege, and only that job holds it.
+    permissions:
+      contents: read
+      pages: read
+    steps:
+      # Actions are pinned to a resolved commit SHA, not a moving tag, so a
+      # retagged upstream release cannot change what runs here.
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The same checks that guard the local app guard the hosted one, in this
+      # workflow rather than by trusting another run.
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Typecheck the shell
+        run: npm run typecheck:pages
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Configure Pages
+        id: pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      - name: Build the static export
+        env:
+          PAGES_BASE_PATH: ${{ steps.pages.outputs.base_path }}
+        run: npm run build:pages
+
+      - name: Verify the export is static only
+        run: |
+          set -euo pipefail
+          test -f pages-app/out/index.html
+          test -f pages-app/out/404.html
+          for forbidden in api xray _next/server middleware-manifest.json; do
+            if [ -e "pages-app/out/$forbidden" ]; then
+              echo "The export contains $forbidden, which cannot be served statically." >&2
+              exit 1
+            fi
+          done
+
+      # Only the export is uploaded. Source, node_modules, the local build and
+      # the test output stay out of the artifact.
+      - name: Upload the export
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: pages-app/out
+
+  deploy:
+    name: deploy
+    needs: build
+    if: ${{ vars.ENABLE_PAGES == 'true' && github.event.repository.private == false && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

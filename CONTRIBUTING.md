@@ -19,8 +19,9 @@ or `.env` file are needed; if a change ever needs one, that is a design discussi
 npm run check   # typecheck, then unit tests, then build
 ```
 
-CI runs exactly these three steps, in this order, on every push and pull request. It does not deploy,
-publish, or release anything. A red build is not "flaky until proven otherwise": read it.
+CI runs exactly these three steps, in this order, on every push and pull request, and in a second job
+it typechecks the static shell, builds the export, and asserts the export is static only. Neither job
+deploys, publishes, or releases anything. A red build is not "flaky until proven otherwise": read it.
 
 Playwright tests are not in CI and are run locally:
 
@@ -30,6 +31,39 @@ npm run test:e2e
 
 `playwright.config.ts` reuses an already running dev server, so `npm run dev` in another terminal makes
 the suite much faster. Without one it starts `npm run dev` itself.
+
+### The static shell
+
+The hosted browser edition is built from `pages-app`, a second, tiny Next application whose pages
+re-export the shared routes in `src/app`. It exists so the local app keeps its API route, its dynamic
+route and its dev workflow unchanged while the export has none of them.
+
+```bash
+npm run typecheck:pages   # tsc for pages-app
+npm run build:pages       # static export into pages-app/out
+npm run preview:pages     # serve that export on 127.0.0.1:3100 under /url-x-ray
+npm run test:pages        # Playwright against the export, assumes it is already built
+```
+
+Things worth knowing before changing it:
+
+- `npm run dev`, `npm run build` and `npm start` must stay identical. The shell adds scripts; it never
+  changes the local ones. Output stays separate: `.next` for the local app, `pages-app/.next` and
+  `pages-app/out` for the export.
+- The base path comes from `PAGES_BASE_PATH` (default `/url-x-ray`) and is validated once in
+  `scripts/base-path.mjs`, which `pages-app/next.config.mjs`, the preview server and the Pages test
+  config all import. That config is `.mjs` rather than `.ts` because Next's config transpile step does
+  not resolve a relative `.mjs` import from a TypeScript config. A base path ends up in every emitted URL, so an invalid value fails the build rather than
+  producing a site whose assets 404.
+- Edition differences belong in `src/lib/edition.ts` and `src/components/edition.tsx`, decided at build
+  time from `NEXT_PUBLIC_XRAY_EDITION`. A runtime switch would let a static page claim capabilities it
+  does not have.
+- A layer the hosted edition cannot collect is `unavailable` with `reason: "local-only"`, which is a
+  deliberate omission and not a failed observation. Do not report it as an error.
+- Root `tsconfig.json` excludes `pages-app`, so `npm run typecheck` and `npm run typecheck:pages` do not
+  fight over generated Next types.
+- `playwright.config.ts` ignores `pages*.spec.ts` and `playwright.pages.config.ts` runs only those, so
+  the local suite and the export suite never share a server or a port.
 
 ## Ownership
 
@@ -42,6 +76,9 @@ The work is split so that contributors do not collide:
 - **Docs, tooling, and the stream decoder unit tests**: this file, `README.md`,
   `docs/ARCHITECTURE.md`, `SECURITY.md`, `LICENSE`, `.github/workflows/ci.yml`,
   `playwright.config.ts`, `tests/unit/stream.test.ts`.
+- **The static shell and its deployment**: `pages-app/`, `scripts/base-path.mjs`,
+  `scripts/serve-pages.mjs`, `playwright.pages.config.ts`, `tests/e2e/pages*.spec.ts`,
+  `.github/workflows/pages.yml`.
 
 Changing `src/lib/types.ts` affects everyone, so raise it before you change it.
 

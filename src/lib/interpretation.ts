@@ -1,3 +1,4 @@
+import { isLocalOnly, LOCAL_ONLY_MESSAGES } from "./edition";
 import { dnsNameDoesNotExist, failedDnsQueries } from "./dns-status";
 import type {
   Confidence,
@@ -259,12 +260,16 @@ export function shortName(dn: string): string {
 
 export interface PrimaryAddress {
   ip: string;
-  origin: "dns" | "http" | "network";
+  origin: "url" | "dns" | "http" | "network";
   detail: string;
 }
 
 export function primaryAddress(investigation: Investigation): PrimaryAddress | undefined {
   const dnsAddresses = investigation.dns?.addresses ?? [];
+  const skipped = Object.values(investigation.dns?.queryStatus ?? {});
+  if (dnsAddresses.length && skipped.length && skipped.every((status) => status === "not applicable")) {
+    return { ip: dnsAddresses[0], origin: "url", detail: "supplied directly in the URL" };
+  }
   if (dnsAddresses.length > 0) {
     return {
       ip: dnsAddresses[0],
@@ -362,7 +367,10 @@ export function interpretInvestigation(investigation: Investigation): Finding[] 
     const nameservers = recordsOfType(dns, "NS");
     const failed = failedDnsQueries(dns);
 
-    if (addresses.length > 0) {
+    const literal = Object.values(dns.queryStatus ?? {}).length > 0 && Object.values(dns.queryStatus).every((status) => status === "not applicable");
+    if (literal) {
+      add({ id: "finding-dns-literal", layer: "dns", title: "An IP address was supplied directly", description: `${hostname} is the address in the URL, so no hostname needed to be resolved. Network metadata can still be looked up for this public address.`, confidence: "observed", evidenceIds: dnsEvidence });
+    } else if (addresses.length > 0) {
       add({
         id: "finding-dns-addresses",
         layer: "dns",
@@ -443,7 +451,9 @@ export function interpretInvestigation(investigation: Investigation): Finding[] 
   const httpStatus = providerState(investigation, "http");
   const http = investigation.http;
   const httpEvidence = evidenceIds(investigation, "http");
-  if (!http || !httpResponseCaptured(http)) {
+  if (isLocalOnly(investigation, "http")) {
+    add({ id: "finding-http-local-only", layer: "http", title: "Redirects and headers: run locally", description: LOCAL_ONLY_MESSAGES.http, confidence: "unknown", evidenceIds: [] });
+  } else if (!http || !httpResponseCaptured(http)) {
     const stopped = [providerMessage(investigation, "http"), http?.stoppedReason ?? ""].find(
       (reason) => reason.length > 0,
     );
@@ -545,7 +555,9 @@ export function interpretInvestigation(investigation: Investigation): Finding[] 
   const tlsStatus = providerState(investigation, "tls");
   const tls = investigation.tls;
   const tlsEvidence = evidenceIds(investigation, "tls");
-  if (!tls) {
+  if (isLocalOnly(investigation, "tls")) {
+    add({ id: "finding-tls-local-only", layer: "tls", title: "Certificate inspection: run locally", description: LOCAL_ONLY_MESSAGES.tls, confidence: "unknown", evidenceIds: [] });
+  } else if (!tls) {
     const plaintext = url?.scheme === "http";
     add({
       id: plaintext
@@ -695,7 +707,9 @@ export function interpretInvestigation(investigation: Investigation): Finding[] 
   const techStatus = providerState(investigation, "technology");
   const technology = investigation.technology;
   const techEvidence = evidenceIds(investigation, "technology");
-  if (!technology) {
+  if (isLocalOnly(investigation, "technology")) {
+    add({ id: "finding-technology-local-only", layer: "technology", title: "Response technologies: run locally", description: LOCAL_ONLY_MESSAGES.technology, confidence: "unknown", evidenceIds: [] });
+  } else if (!technology) {
     add({
       id: isPending(techStatus) ? "finding-technology-pending" : "finding-technology-unavailable",
       layer: "technology",
@@ -761,7 +775,7 @@ export function interpretInvestigation(investigation: Investigation): Finding[] 
         id: `finding-infrastructure-${slug(guess.name)}`,
         layer: "infrastructure",
         title: `${guess.name} inferred`,
-        description: `${guess.explanation} This is an inference from response evidence, not a confirmation from the provider, and it can be wrong when a platform is proxied by another.`,
+        description: `${guess.explanation} This is an inference from the cited evidence, not a confirmation from the provider or proof of the origin host.`,
         confidence: "inferred",
         evidenceIds: Array.from(new Set(guess.evidenceIds ?? [])),
       });
@@ -847,12 +861,13 @@ export function buildInfrastructureGraph(investigation: Investigation): Infrastr
   const dnsStatus = providerState(investigation, "dns");
   const dnsAddresses = dns?.addresses ?? [];
   const dnsRecordCount = dns?.records?.length ?? 0;
-  const dnsKnown = Boolean(dns) && (dnsRecordCount > 0 || dnsAddresses.length > 0 || dnsNameDoesNotExist(dns));
+  const literal = primary?.origin === "url";
+  const dnsKnown = !literal && Boolean(dns) && (dnsRecordCount > 0 || dnsAddresses.length > 0 || dnsNameDoesNotExist(dns));
   nodes.push({
     id: "dns",
     layer: "dns",
     eyebrow: "DNS",
-    label: !dns
+    label: literal ? "not needed" : !dns
       ? isPending(dnsStatus)
         ? "lookup pending"
         : "unknown"
@@ -863,8 +878,8 @@ export function buildInfrastructureGraph(investigation: Investigation): Infrastr
           : dnsRecordCount > 0
             ? `${plural(dnsRecordCount, "record")}, no address`
             : "no records",
-    detail: dns?.resolver ? `via ${clip(dns.resolver, 26)}` : statusLabel(dnsStatus),
-    confidence: dnsKnown ? "observed" : "unknown",
+    detail: literal ? "IP supplied in the URL" : dns?.resolver ? `via ${clip(dns.resolver, 26)}` : statusLabel(dnsStatus),
+    confidence: dnsKnown || literal ? "observed" : "unknown",
     status: dnsStatus,
     evidenceIds: evidenceIds(investigation, "dns"),
   });
@@ -991,7 +1006,7 @@ export function buildInfrastructureGraph(investigation: Investigation): Infrastr
           )}`
         : "no platform inferable",
     confidence: guesses.length > 0 ? "inferred" : "unknown",
-    status: techStatus,
+    status: investigation.edition === "browser" ? providerState(investigation, "network") : techStatus,
     evidenceIds: Array.from(new Set(guesses.flatMap((guess) => guess.evidenceIds ?? []))),
   });
 
@@ -1004,6 +1019,8 @@ export function buildInfrastructureGraph(investigation: Investigation): Infrastr
       kind: "resolution",
     });
   }
+
+  if (primary && literal) edges.push({ id: "url-ip", from: "url", to: "ip", label: "supplies address", kind: "relationship" });
 
   if (primary && ipFromDns) {
     edges.push({
@@ -1080,6 +1097,7 @@ export function buildInfrastructureGraph(investigation: Investigation): Infrastr
   return {
     nodes: nodes.map((node) => ({
       ...node,
+      ...(isLocalOnly(investigation, node.layer) ? { label: "run locally", detail: "available in the local app" } : {}),
       evidenceIds: knownEvidenceIds(investigation, node.evidenceIds),
     })),
     edges: edges.filter((edge) => nodeIds.has(edge.from) && nodeIds.has(edge.to)),

@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Investigation } from "@/lib/types";
+import type { Investigation, InvestigationEvent } from "@/lib/types";
 import { readInvestigationStream } from "./stream";
+import { BASE_PATH } from "../edition";
 
 export function useInvestigation() {
   const [investigation, setInvestigation] = useState<Investigation | null>(null);
@@ -40,15 +41,7 @@ export function useInvestigation() {
     setError(null);
     setInvestigation(null);
     try {
-      const response = await fetch("/api/investigate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url }),
-        signal: request.signal,
-        cache: "no-store",
-        credentials: "omit",
-      });
-      await readInvestigationStream(response, (event) => {
+      const onEvent = (event: InvestigationEvent) => {
         if (generation.current !== requestId) return;
         if (event.type === "error") {
           setError(event.message);
@@ -57,7 +50,22 @@ export function useInvestigation() {
           setInvestigation(event.investigation);
           if (event.type === "complete") setRunning(false);
         }
-      }, request.signal);
+      };
+      // Inline the build flag so the static bundle drops the local API branch.
+      if (process.env.NEXT_PUBLIC_XRAY_EDITION === "browser") {
+        const { investigateInBrowser } = await import("./browser-investigate");
+        for await (const event of investigateInBrowser({ url, signal: request.signal })) onEvent(event);
+      } else {
+        const response = await fetch(`${BASE_PATH}/api/investigate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url }),
+          signal: request.signal,
+          cache: "no-store",
+          credentials: "omit",
+        });
+        await readInvestigationStream(response, onEvent, request.signal);
+      }
     } catch (cause) {
       if (generation.current !== requestId || request.signal.aborted) return;
       setError(cause instanceof Error ? cause.message : "The investigation was interrupted. Please try again.");

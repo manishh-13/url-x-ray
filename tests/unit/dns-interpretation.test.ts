@@ -119,7 +119,8 @@ describe("dnsProvider output read by the interpreter", () => {
     expect(failedDnsQueries(investigation.dns)).toEqual([]);
     expect(ids).not.toContain("finding-dns-partial");
     expect(ids).not.toContain("finding-dns-nxdomain");
-    expect(byId(findings, "finding-dns-addresses")?.title).toBe("1 address returned for 203.0.114.5");
+    expect(byId(findings, "finding-dns-literal")?.title).toBe("An IP address was supplied directly");
+    expect(ids).not.toContain("finding-dns-addresses");
   });
 
   it("still reports a genuinely unanswered question as unknown for this run", async () => {

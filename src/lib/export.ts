@@ -108,12 +108,13 @@ function sanitizeEvidence(row: Evidence) {
 
 export function sanitizeInvestigation(investigation: Investigation) {
   const url = investigation.url;
-  const providers: Record<string, { status: string; message?: string; durationMs?: number }> = {};
+  const providers: Record<string, { status: string; reason?: string; message?: string; durationMs?: number }> = {};
   for (const key of Object.keys(investigation.providers ?? {})) {
     const state = investigation.providers[key as ProviderId];
     if (!state) continue;
     providers[sanitizeText(key, 24)] = {
       status: state.status,
+      ...(state.reason ? { reason: state.reason } : {}),
       ...(state.message ? { message: sanitizeText(state.message, 512) } : {}),
       ...(typeof state.durationMs === "number" ? { durationMs: state.durationMs } : {}),
     };
@@ -121,6 +122,7 @@ export function sanitizeInvestigation(investigation: Investigation) {
 
   return {
     id: sanitizeText(investigation.id, 128),
+    edition: investigation.edition ?? "local",
     startedAt: sanitizeText(investigation.startedAt, 64),
     ...(investigation.finishedAt ? { finishedAt: sanitizeText(investigation.finishedAt, 64) } : {}),
     url: url
@@ -301,8 +303,8 @@ export function createReportJson(investigation: Investigation): string {
     },
     evidenceCounts: counts,
     scope: {
-      limitations: SCOPE_LIMITATIONS,
-      notCollected: NOT_COLLECTED,
+      limitations: investigation.edition === "browser" ? ["Browser edition: only public DNS and network sources were queried. No HTTP request or TLS handshake was made to the website.", ...SCOPE_LIMITATIONS] : SCOPE_LIMITATIONS,
+      notCollected: investigation.edition === "browser" ? ["TLS certificates, HTTP responses, redirects, headers and response technology markers. Run the local app to collect these.", ...NOT_COLLECTED] : NOT_COLLECTED,
       confidenceMeaning: {
         observed: "Measured or returned by a named source during this run.",
         inferred: "Suggested by evidence in this run, stated as a guess and not a confirmation.",
@@ -507,7 +509,7 @@ function renderRail(investigation: Investigation, findings: Finding[], graph: In
       }),
     );
     out.push(
-      text(statusLabel(investigation.providers?.[source]?.status ?? "pending"), railX + 108, y, {
+      text(investigation.providers?.[source]?.reason === "local-only" ? "Local app" : statusLabel(investigation.providers?.[source]?.status ?? "pending"), railX + 108, y, {
         size: 9.5,
         fill: COLORS.faint,
         max: 18,
@@ -656,7 +658,9 @@ export function createReportSvg(investigation: Investigation): string {
 
   const footer = [
     "Observed means measured by a named source in this single run. Inferred means suggested by that evidence and stated as a guess. Unknown means not determined here, never absent.",
-    "No JavaScript executed, no subresources fetched, no port scan, no traceroute, no saved history. Registry country is administrative data about an address block, not a server location.",
+    investigation.edition === "browser"
+      ? "Browser edition: public DNS and network lookups only. No request was sent to the website. TLS, redirects, headers and response technologies require the local app."
+      : "No JavaScript executed, no subresources fetched, no port scan, no traceroute, no saved history. Registry country is administrative data about an address block, not a server location.",
     "Authoritative DNS answers a name; address registration identifies a network. Neither establishes who serves the content or where an origin runs. Every claim traces to an evidence row here.",
   ];
   footer.forEach((line, index) => {

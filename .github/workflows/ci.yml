@@ -4,8 +4,8 @@ on:
   push:
   pull_request:
 
-# Read-only. This workflow checks the code; it never deploys, publishes to npm,
-# builds Pages, or writes to the repository.
+# Read-only. Builds both editions for validation; never deploys, publishes to npm
+# or writes to the repository.
 permissions:
   contents: read
 
@@ -45,3 +45,47 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  static-shell:
+    name: static Pages shell (build only, no deploy)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck the shell
+        run: npm run typecheck:pages
+
+      - name: Build the static export
+        run: npm run build:pages
+
+      # The point of this job: prove the artifact is a static site. If a server
+      # route, an API route or a dynamic route ever reaches the export, this
+      # fails here rather than at deploy time.
+      - name: Verify the export is static only
+        run: |
+          set -euo pipefail
+          test -f pages-app/out/index.html
+          test -f pages-app/out/404.html
+          for forbidden in api xray _next/server middleware-manifest.json; do
+            if [ -e "pages-app/out/$forbidden" ]; then
+              echo "The export contains $forbidden, which cannot be served statically." >&2
+              exit 1
+            fi
+          done
+          echo "Static export verified:"
+          find pages-app/out -maxdepth 1 -mindepth 1 -printf '%y %p\n' | sort

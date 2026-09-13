@@ -12,7 +12,12 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "check": "npm run typecheck && npm test && npm run build"
+    "check": "npm run typecheck && npm test && npm run build",
+    "typecheck:pages": "tsc --noEmit -p pages-app",
+    "build:pages": "next build pages-app",
+    "preview:pages": "node scripts/serve-pages.mjs",
+    "test:pages": "playwright test --config playwright.pages.config.ts",
+    "check:pages": "npm run typecheck:pages && npm run build:pages"
   },
   "dependencies": {
     "ipaddr.js": "latest",

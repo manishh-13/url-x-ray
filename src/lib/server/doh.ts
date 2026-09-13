@@ -1,4 +1,5 @@
 import { LIMITS } from "./limits";
+import { readBoundedJson } from "./bounded-json";
 
 /** Fixed, trusted resolver endpoint. User input never chooses the resolver. */
 export const DOH_ENDPOINT = "https://cloudflare-dns.com/dns-query";
@@ -53,6 +54,7 @@ export const cloudflareDoh: DohQuery = async (name, type, signal) => {
 
   const response = await fetch(endpoint, {
     method: "GET",
+    mode: "cors",
     headers: { accept: "application/dns-json" },
     redirect: "error",
     cache: "no-store",
@@ -62,14 +64,7 @@ export const cloudflareDoh: DohQuery = async (name, type, signal) => {
   });
   if (!response.ok) throw new Error(`Resolver returned HTTP ${response.status}`);
 
-  const text = await readBounded(response, MAX_DOH_BYTES);
-  let payload: unknown;
-  try {
-    payload = JSON.parse(text);
-  } catch {
-    throw new Error("Resolver returned a response that was not JSON");
-  }
-  return normalizeDohPayload(payload);
+  return normalizeDohPayload(await readBoundedJson(response, MAX_DOH_BYTES, "Resolver"));
 };
 
 export function normalizeDohPayload(payload: unknown): DohResult {
@@ -93,14 +88,6 @@ export function normalizeDohPayload(payload: unknown): DohResult {
     answers,
     comment: typeof record.Comment === "string" ? record.Comment : undefined,
   };
-}
-
-async function readBounded(response: Response, maxBytes: number): Promise<string> {
-  const declared = Number(response.headers.get("content-length") ?? "0");
-  if (declared > maxBytes) throw new Error("Resolver response too large");
-  const buffer = await response.arrayBuffer();
-  if (buffer.byteLength > maxBytes) throw new Error("Resolver response too large");
-  return new TextDecoder().decode(buffer);
 }
 
 /** TXT answers come quoted and can be split into chunks; join them faithfully. */

@@ -1,18 +1,26 @@
 import { existsSync } from "node:fs";
 import { defineConfig, devices } from "@playwright/test";
+import { basePathFromEnv } from "./scripts/base-path.mjs";
 
-const baseURL = "http://127.0.0.1:3099";
+/**
+ * The static shell, checked the way a static host serves it.
+ *
+ * This config is separate from playwright.config.ts on purpose: it tests a
+ * different artifact (pages-app/out) on a different port, and it assumes the
+ * export already exists, so it never triggers a build. The local suite ignores
+ * pages*.spec.ts and this suite runs nothing else.
+ */
+const basePath = basePathFromEnv();
+const origin = `http://127.0.0.1:${process.env.PAGES_PREVIEW_PORT ?? 3100}`;
+const baseURL = `${origin}${basePath}/`;
+
 const localChrome = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
-
-// Prefer an explicit override, then a locally installed Chrome, then Playwright's
-// bundled Chromium. This keeps the suite runnable on a machine where the browser
-// download was skipped, without hard-coding a path that only exists on macOS.
 const fromEnv = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 const executablePath = fromEnv || (existsSync(localChrome) ? localChrome : undefined);
 
 export default defineConfig({
   testDir: "./tests/e2e",
-  testIgnore: "pages*.spec.ts",
+  testMatch: "pages*.spec.ts",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
@@ -30,13 +38,11 @@ export default defineConfig({
   },
 
   projects: [
+    { name: "desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 1000 } } },
     {
-      name: "desktop",
-      use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 1000 } },
-    },
-    {
-      // A narrow viewport with touch, run in the same Chromium engine. iOS Safari
-      // rendering is out of scope, so no WebKit project is defined.
+      // Same engine, narrow viewport with touch, matching the local config. The
+      // hosted edition adds capability copy and local-only panels, and those are
+      // the parts most likely to break a small layout.
       name: "mobile",
       use: {
         ...devices["Desktop Chrome"],
@@ -49,12 +55,11 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: "npm run dev",
+    command: "npm run preview:pages",
     url: baseURL,
     reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+    timeout: 60_000,
     stdout: "pipe",
     stderr: "pipe",
-    env: { NEXT_TELEMETRY_DISABLED: "1" },
   },
 });

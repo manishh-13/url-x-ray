@@ -41,7 +41,7 @@ const terms: Partial<Record<Layer, [string, string][]>> = {
   infrastructure: [
     ["Edge and CDN", "A content delivery network handles requests closer to visitors, often caching responses in front of the origin."],
     ["Origin", "The application or server behind a proxy or CDN. Public responses may identify the edge without revealing the origin."],
-    ["Inferred", "A platform suggested by captured response signals. Open its evidence to see the clues used."],
+    ["Inferred", "A platform suggested by the evidence captured in this run, such as a DNS record, a network affiliation or a response signal. Open its evidence to see the clues used."],
   ],
 };
 

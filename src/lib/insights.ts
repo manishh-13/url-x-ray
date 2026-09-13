@@ -1,5 +1,6 @@
 import type { Evidence, Finding, Investigation, Layer, NetworkAddress, ProviderId } from "./types";
 import { dnsNameDoesNotExist, dnsQueryOutcome, failedDnsQueries } from "./dns-status";
+import { isLocalOnly, LOCAL_ONLY_MESSAGES } from "./edition";
 
 export interface NextCheck {
   id: string;
@@ -32,7 +33,7 @@ function idsFor(i: Investigation, source: Evidence["source"]): string[] {
 }
 
 function count(n: number, noun: string): string {
-  return `${n} ${noun}${n === 1 ? "" : noun === "address" ? "es" : "s"}`;
+  return `${n} ${noun}${n === 1 ? "" : noun.endsWith("address") ? "es" : "s"}`;
 }
 
 function shortList(values: string[], limit = 2): string {
@@ -69,8 +70,55 @@ export function groupNetworkAddresses(addresses: NetworkAddress[]): NetworkGroup
   return [...groups.values()];
 }
 
+/** The hosted summary describes lookups, never an HTTP check that did not happen. */
+function buildBrowserTakeaway(i: Investigation, running: boolean): Takeaway {
+  const notes: string[] = [];
+  const checks: NextCheck[] = [];
+  const result = (tone: Takeaway["tone"], title: string, description: string): Takeaway => ({
+    tone, title, description, layer: "dns", evidenceIds: idsFor(i, "dns"), notes, nextChecks: checks,
+  });
+  const check = (id: string, title: string, description: string) => {
+    checks.push({ id, title, description, layer: "dns", evidenceIds: idsFor(i, "dns") });
+  };
+  if (i.url.hasQuery || i.url.hasFragment) notes.push("Query values and the fragment were discarded. The URL path stays in this browser and any report you export.");
+  if (running) return result("pending", "Looking up public DNS and network records.", "Open any layer as its evidence arrives. The website itself is not requested.");
+  if (!i.finishedAt) return result("neutral", "This investigation stopped early.", "The findings collected so far remain available. Re-run to finish the public lookups.");
+
+  const addresses = i.dns?.addresses ?? [];
+  const refused = i.evidence.some((item) => item.source === "dns" && item.kind === "refused-address");
+  if (refused && !addresses.length) {
+    check("public-destination", "Check the public address records", "The DNS answer includes an address outside the public Internet. If you manage the name, confirm that its public records point to the intended endpoint.");
+    return result("attention", "DNS returned a non-public address.", "Those records are visible in DNS details, but they were not used for network enrichment. No website request was attempted.");
+  }
+  if (!addresses.length && dnsNameDoesNotExist(i.dns)) {
+    check("dns-name", "Check the hostname and its DNS records", "Check the spelling first. If you manage this name, check its records at your DNS provider, then try again after any changes have propagated.");
+    return result("attention", "This hostname did not resolve.", `The resolver returned NXDOMAIN for ${i.url.hostname}, meaning the name was not found in this DNS lookup.`);
+  }
+  if (!addresses.length) {
+    const noAddresses = ["A", "AAAA"].every((type) => dnsQueryOutcome(i.dns?.queryStatus[type]) === "success");
+    check("dns-address", noAddresses ? "Check the address records" : "Check the resolver response", noAddresses
+      ? "If this name should serve a website, check its A, AAAA or CNAME records with your DNS provider."
+      : "Open Query availability to see the lookup errors. Your network or browser may block the public resolver; compare with your usual DNS lookup before changing the site's records.");
+    return result("neutral", noAddresses ? "No public address was returned." : "The address lookup could not be completed.", noAddresses
+      ? "The resolver answered without public A or AAAA addresses. Other returned DNS records remain available."
+      : "The browser could not establish a public address from this resolver. This does not show whether the website is reachable.");
+  }
+  const failed = failedDnsQueries(i.dns);
+  if (failed.length) {
+    notes.push(`${shortList(failed, 3)} DNS ${failed.length === 1 ? "query was" : "queries were"} unavailable; other returned records remain usable.`);
+    check("dns-partial", "Inspect the unavailable DNS queries", "Open Query availability and compare the affected record types with your usual resolver before changing DNS settings.");
+  }
+  if (refused) notes.push("Some answers were outside the public Internet. Only the public addresses were used for network enrichment.");
+  const known = groupNetworkAddresses(i.network?.addresses ?? []).filter((group) => group.asn);
+  if (!known.length) notes.push("Public addresses were found, but their announcing networks could not be identified in this run.");
+  const network = known.length ? ` Network records identify ${known.length === 1 ? "one announcing network" : count(known.length, "announcing network")}.` : "";
+  return result(failed.length || refused ? "neutral" : "positive", isLiteral(i) ? "Public address, ready to explore." : "Public DNS records, ready to explore.",
+    `${isLiteral(i) ? "The URL supplies a public IP address directly." : `The resolver returned ${count(addresses.length, "public address")} for ${i.url.hostname}.`}${network} This is a DNS and network observation, not a website availability check.`);
+}
+
 /** Recommendations are suggestions, derived from captured facts, never a guessed root cause. */
 export function buildTakeaway(i: Investigation, running: boolean): Takeaway {
+  if (i.edition === "browser") return buildBrowserTakeaway(i, running);
   const http = i.http;
   const tls = i.url.scheme === "https" ? i.tls : undefined;
   const hasResponse = !!http?.hops.length && http.finalStatus >= 100 && http.finalStatus <= 599;
@@ -210,6 +258,11 @@ export function buildOverviewFindings(i: Investigation, running: boolean): Findi
     overview.push({ id: `overview-${id}`, layer, title, description, confidence, evidenceIds: idsFor(i, layer) });
   };
   const fallback = (layer: ProviderId, label: string) => {
+    if (isLocalOnly(i, layer)) {
+      const id = layer as keyof typeof LOCAL_ONLY_MESSAGES;
+      add(layer, layer, `${label}: available locally`, LOCAL_ONLY_MESSAGES[id], "unknown");
+      return;
+    }
     const pending = running && ["pending", "investigating"].includes(i.providers[layer].status);
     add(layer, layer, pending ? `${label} is being checked` : `${label} was not captured`, pending ? "The result will appear as soon as this check finishes." : "Open this layer for the recorded reason and any partial findings.", "unknown");
   };
@@ -225,7 +278,7 @@ export function buildOverviewFindings(i: Investigation, running: boolean): Findi
   if (i.http?.hops.length && i.http.finalStatus > 0) add("http", "http", `HTTP ${i.http.finalStatus}${i.http.chainComplete ? " response" : ", partial redirect chain"}`, `${i.http.chainComplete ? "The request ended at" : "The last response came from"} ${i.http.finalUrl}${i.http.redirectCount ? ` after ${count(i.http.redirectCount, "redirect")}` : ""}.`);
   else fallback("http", "The HTTP response");
 
-  if (i.url.scheme === "http") add("tls", "tls", "The submitted address uses HTTP", "The original URL uses an unencrypted connection. Open Redirects & HTTP to see whether it moved to HTTPS.");
+  if (i.url.scheme === "http") add("tls", "tls", "The submitted address uses HTTP", i.edition === "browser" ? "The URL requests plaintext HTTP. Run locally to check whether the website redirects to HTTPS." : "The original URL uses an unencrypted connection. Open Redirects & HTTP to see whether it moved to HTTPS.");
   else if (i.tls) {
     if (take.layer === "tls" && take.tone === "attention") add("tls", "tls", take.title, take.description);
     else add("tls", "tls", i.tls.authorized ? "The certificate check passed" : "A certificate was captured", `${i.tls.hostname}${observedDate(i.tls.validTo) ? `, valid until ${observedDate(i.tls.validTo)}` : ", validity date unavailable"}. Open Certificate for its names and issuer.`);
@@ -243,8 +296,10 @@ export function buildOverviewFindings(i: Investigation, running: boolean): Findi
   const tech = i.technology;
   const guesses = tech?.infrastructure ?? [];
   if (guesses.length) {
-    overview.push({ id: "overview-technology", layer: "infrastructure", title: `${shortList(guesses.map((guess) => guess.name))} suggested by response signals`, description: tech?.technologies.length ? `Technology signals: ${shortList(tech.technologies.map((item) => item.name), 3)}. Open the evidence to see why this platform is suggested.` : "Open the response evidence behind this platform suggestion.", confidence: "inferred", evidenceIds: [...new Set(guesses.flatMap((guess) => guess.evidenceIds))].filter((id) => i.evidence.some((item) => item.id === id)) });
-  } else if (tech?.technologies.length) add("technology", "technology", `${count(tech.technologies.length, "technology signal")} found`, `${shortList(tech.technologies.map((item) => item.name), 3)} appeared in response headers or HTML.`, tech.technologies.some((item) => item.confidence === "inferred") ? "inferred" : "observed");
+    const networkOnly = guesses.every((guess) => guess.evidenceIds.length > 0 && guess.evidenceIds.every((id) => i.evidence.some((item) => item.id === id && item.source === "network")));
+    overview.push({ id: "overview-technology", layer: "infrastructure", title: `${shortList(guesses.map((guess) => guess.name))} suggested by ${networkOnly ? "network records" : "collected signals"}`, description: networkOnly ? "This identifies a possible announcing network, not the website's origin host. Open the supporting ASN records." : tech?.technologies.length ? `Technology signals: ${shortList(tech.technologies.map((item) => item.name), 3)}. Open the evidence to see why this platform is suggested.` : "Open the evidence behind this platform suggestion.", confidence: "inferred", evidenceIds: [...new Set(guesses.flatMap((guess) => guess.evidenceIds))].filter((id) => i.evidence.some((item) => item.id === id)) });
+  } else if (isLocalOnly(i, "technology")) fallback("technology", "Response technologies");
+  else if (tech?.technologies.length) add("technology", "technology", `${count(tech.technologies.length, "technology signal")} found`, `${shortList(tech.technologies.map((item) => item.name), 3)} appeared in response headers or HTML.`, tech.technologies.some((item) => item.confidence === "inferred") ? "inferred" : "observed");
   else if (tech) add("technology", "technology", "No recognized technology signal", "You can still explore the response and headers. A framework does not have to identify itself.", "unknown");
   else fallback("technology", "Technology signals");
 

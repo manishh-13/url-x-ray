@@ -4,6 +4,8 @@ import { useState, type FormEvent } from "react";
 import { motion } from "motion/react";
 import { useMotionPreference } from "@/lib/client/use-motion-preference";
 import { ArrowRight, ArrowUpRight, CornerDownLeft, Globe2, ScanLine, Braces, Network, Fingerprint, Route } from "lucide-react";
+import { IS_BROWSER_EDITION } from "@/lib/edition";
+import { EditionCapabilities } from "./edition";
 
 const examples = ["github.com", "cloudflare.com", "aws.amazon.com", "vercel.com"];
 
@@ -85,7 +87,7 @@ export function Landing({ onSubmit, error }: { onSubmit: (url: string) => void; 
       <motion.div initial={reduced ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .65 }}>
         <p className="hero-eyebrow"><span className="line-marker" /> THE INTERNET, UNDER THE SURFACE</p>
         <h1>See what’s<br /><span>behind a URL.</span></h1>
-        <p className="hero-description">An address is just the beginning. Explore the DNS, networks,<br className="desktop-break" /> certificates, and technologies that make a website possible.</p>
+        <p className="hero-description">{IS_BROWSER_EDITION ? <>Explore the live DNS records and public networks<br className="desktop-break" /> behind a website, with the evidence that connects them.</> : <>An address is just the beginning. Explore the DNS, networks,<br className="desktop-break" /> certificates, and technologies that make a website possible.</>}</p>
       </motion.div>
       <motion.div className="hero-input-area" initial={reduced ? false : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .65, delay: .12 }}>
         <UrlForm onSubmit={onSubmit} />
@@ -93,22 +95,23 @@ export function Landing({ onSubmit, error }: { onSubmit: (url: string) => void; 
         <div className="try-row"><button className="try-example" onClick={() => onSubmit("https://example.com")}>Try example.com <ArrowUpRight size={13} /></button><span className="try-divider" />
           <div className="example-links">{examples.map((example) => <button key={example} onMouseEnter={() => setPreview(example)} onMouseLeave={() => setPreview(null)} onFocus={() => setPreview(example)} onBlur={() => setPreview(null)} onClick={() => onSubmit(`https://${example}`)}>{example}</button>)}</div>
         </div>
-        <p id="input-privacy" className="input-privacy">Public URLs only. No sign-in. No saved investigations.</p>
+        <p id="input-privacy" className="input-privacy">Public URLs only. No sign-in. No saved investigations.{IS_BROWSER_EDITION ? " DNS and network run live in this browser." : ""}</p>
       </motion.div>
     </section>
     <motion.section className="landing-instrument" tabIndex={0} initial={reduced ? false : { opacity: 0, y: 22 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .85, delay: .2 }} aria-label="Scrollable introduction to the infrastructure map">
       <ConceptSchematic hostname={preview ?? "example.com"} preview={!!preview} />
     </motion.section>
+    <EditionCapabilities />
     <section id="how-it-works" className="how-section">
       <div className="how-intro"><span className="eyebrow">A DIFFERENT WAY TO LOOK</span><h2>Less lookup.<br />More understanding.</h2><p>Follow the evidence from the address you can see to the infrastructure you can’t.</p></div>
       <div className="how-steps">
         {[
           { icon: Braces, n: "01", title: "Take it apart.", text: "A URL becomes its individual parts. DNS reveals the names and addresses behind the hostname." },
-          { icon: Network, n: "02", title: "Follow the connections.", text: "Watch a living map assemble from public records, HTTP responses, and the network carrying them." },
+          { icon: Network, n: "02", title: "Follow the connections.", text: IS_BROWSER_EDITION ? "Watch a living map assemble from public DNS records and the networks announcing their addresses." : "Watch a living map assemble from public records, HTTP responses, and the network carrying them." },
           { icon: Fingerprint, n: "03", title: "See how we know.", text: "Every finding has evidence. What we observe, what we infer, and what we don’t know stay separate." },
         ].map(({ icon: Icon, n, title, text }) => <div className="how-step" key={n}><div className="step-index"><Icon size={19} strokeWidth={1.3} /><span>{n}</span></div><div><h3>{title}</h3><p>{text}</p></div></div>)}
       </div>
     </section>
-    <section className="honesty-line"><Globe2 size={18} strokeWidth={1.2} /><p>Public information. Human understanding.<br /><span>Explore a familiar website, follow a redirect, or discover something new.</span></p><Route size={31} strokeWidth={.9} className="honesty-route" /></section>
+    <section className="honesty-line"><Globe2 size={18} strokeWidth={1.2} /><p>Public information. Human understanding.<br /><span>{IS_BROWSER_EDITION ? "Explore a familiar hostname or discover the network behind it." : "Explore a familiar website, follow a redirect, or discover something new."}</span></p><Route size={31} strokeWidth={.9} className="honesty-route" /></section>
   </main>;
 }

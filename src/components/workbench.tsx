@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useMotionPreference } from "@/lib/client/use-motion-preference";
-import { ArrowLeft, ArrowRight, ArrowUpRight, Check, Circle, Code2, Download, FileJson, Image as ImageIcon, Link2, LoaderCircle, Minus, RefreshCw, ScanLine, Square, Waypoints, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, ArrowUpRight, Check, Circle, Code2, Download, FileJson, Image as ImageIcon, Laptop, Link2, LoaderCircle, Minus, RefreshCw, ScanLine, Square, Waypoints, X } from "lucide-react";
 import type { Finding, Investigation, Layer, ProviderId } from "@/lib/types";
+import { createShareUrl, IS_BROWSER_EDITION, isLocalOnly } from "@/lib/edition";
 import { buildInfrastructureGraph, interpretInvestigation } from "@/lib/interpretation";
 import { buildOverviewFindings, buildTakeaway } from "@/lib/insights";
 import { ResultSummary } from "./result-summary";
@@ -13,6 +14,7 @@ import { ConfidenceBadge, Dialog, layerNames } from "./primitives";
 import { UrlForm } from "./landing";
 import { InfrastructureMap } from "./infrastructure-map";
 import { EvidenceList, HistoryEmpty, LayerDrawer, NetworkDetails } from "./evidence-panel";
+import { EditionCapabilities } from "./edition";
 
 const stages: { id: ProviderId; label: string }[] = [
   { id: "dns", label: "Resolving DNS" }, { id: "http", label: "Following the request" },
@@ -25,9 +27,10 @@ export function InvestigationProgress({ investigation }: { investigation: Invest
     <span className="progress-stage complete"><Check size={12} /><span>URL parsed</span></span>
     {stages.map(({ id, label }) => {
       const status = investigation.providers[id].status;
-      return <span key={id} className={`progress-stage ${status}`} title={investigation.providers[id].message}>
-        {status === "complete" ? <Check size={12} /> : status === "investigating" ? <LoaderCircle className="spin" size={12} /> : status === "unavailable" ? <Minus size={12} /> : <Circle size={10} />}
-        <span>{status === "complete" ? ({ dns: "DNS resolved", http: "Response inspected", tls: "Certificate inspected", network: "Network inspected", technology: "Signals analyzed" })[id] : status === "unavailable" ? ({ dns: "DNS unavailable", http: "HTTP unavailable", tls: "TLS unavailable", network: "Network unavailable", technology: "Signals unavailable" })[id] : label}</span>
+      const localOnly = isLocalOnly(investigation, id);
+      return <span key={id} className={`progress-stage ${status} ${localOnly ? "stage-local-only" : ""}`} title={localOnly ? "This layer runs in the local app." : investigation.providers[id].message}>
+        {localOnly ? <Laptop size={12} /> : status === "complete" ? <Check size={12} /> : status === "investigating" ? <LoaderCircle className="spin" size={12} /> : status === "unavailable" ? <Minus size={12} /> : <Circle size={10} />}
+        <span>{localOnly ? ({ dns: "DNS: local app", http: "HTTP: local app", tls: "TLS: local app", network: "Network: local app", technology: "Technologies: local app" })[id] : status === "complete" ? ({ dns: "DNS resolved", http: "Response inspected", tls: "Certificate inspected", network: "Network inspected", technology: "Signals analyzed" })[id] : status === "unavailable" ? ({ dns: "DNS unavailable", http: "HTTP unavailable", tls: "TLS unavailable", network: "Network unavailable", technology: "Signals unavailable" })[id] : label}</span>
       </span>;
     })}
   </div>;
@@ -118,7 +121,10 @@ export function Workbench({ investigation: i, running, error, onRun, onCancel, o
   const findings = useMemo(() => interpretInvestigation(i), [i]);
   const overview = useMemo(() => buildOverviewFindings(i, running), [i, running]);
   const takeaway = useMemo(() => buildTakeaway(i, running), [i, running]);
-  const missing = Object.values(i.providers).filter((provider) => provider.status === "unavailable").length;
+  const providerIds = Object.keys(i.providers) as ProviderId[];
+  const missing = providerIds.filter((id) => i.providers[id].status === "unavailable" && !isLocalOnly(i, id)).length;
+  const runnable = providerIds.filter((id) => !isLocalOnly(i, id));
+  const localOnly = providerIds.length - runnable.length;
   const observed = i.evidence.filter((item) => item.confidence === "observed").length;
   const inferred = findings.filter((item) => item.confidence === "inferred").length;
   const rerun = useCallback(() => onRun(i.url.href), [onRun, i.url.href]);
@@ -154,7 +160,7 @@ export function Workbench({ investigation: i, running, error, onRun, onCancel, o
     finally { setExporting(null); }
   }
   const share = () => {
-    setShareUrl(`${window.location.origin}/xray/${encodeURIComponent(i.url.hostname)}`);
+    setShareUrl(createShareUrl(window.location.origin, i));
     setShareOpen(true);
     setCopied(false);
   };
@@ -167,6 +173,7 @@ export function Workbench({ investigation: i, running, error, onRun, onCancel, o
     </div><div className="result-actions">{running ? <button className="secondary-button" onClick={onCancel}><Square size={13} />Stop</button> : <button className="icon-button rerun-button" aria-label="Re-run analysis" onClick={rerun} title="Re-run analysis (R)"><RefreshCw size={16} /></button>}<button className="secondary-button" onClick={share}><Link2 size={15} /><span>Share</span></button><button className="secondary-button" onClick={() => setExportOpen(true)}><Download size={15} /><span>Export</span></button></div></div>
     {editUrl && <div className="edit-url-form"><UrlForm key={i.id} initialValue={i.url.href} compact onSubmit={(url) => { setEditUrl(false); onRun(url); }} /></div>}
     {error && <p role="alert" className="result-notice">{error}</p>}
+    <EditionCapabilities variant="compact" />
     <ResultSummary takeaway={takeaway} onSelect={setLayer} />
     <InvestigationProgress investigation={i} />
     <ParseSequence url={i.url} running={running} onSelect={() => setLayer("url")} />
@@ -180,11 +187,11 @@ export function Workbench({ investigation: i, running, error, onRun, onCancel, o
       {depth === 4 && <section className="network-workspace"><div><span className="eyebrow">BEYOND THE HOSTNAME</span><h2>The network underneath.</h2><NetworkDetails investigation={i} /></div><HistoryEmpty /></section>}
     </div>
     <div className="result-bottom"><div className="confidence-legend"><ConfidenceBadge confidence="observed" /><ConfidenceBadge confidence="inferred" /><ConfidenceBadge confidence="unknown" /></div><div className="keyboard-hints"><span><kbd>E</kbd> evidence</span><span><kbd>G</kbd> graph</span><span><kbd>R</kbd> re-run</span><span><kbd>esc</kbd> back</span></div></div>
-    <div className="observation-scope"><span>ABOUT THIS OBSERVATION</span><p>A snapshot from this server at the time shown. Results can vary by location and time; open a finding to see its source.</p></div>
+    <div className="observation-scope"><span>ABOUT THIS OBSERVATION</span><p>{IS_BROWSER_EDITION ? "A snapshot taken from this browser at the time shown. Results can vary by network, location and time; open a finding to see its source." : "A snapshot from this machine at the time shown. Results can vary by location and time; open a finding to see its source."}</p></div>
     <LayerDrawer investigation={i} layer={layer} onClose={() => setLayer(null)} onLayerChange={setLayer} />
     <Dialog open={exportOpen} onClose={() => setExportOpen(false)} title="Keep the observation." eyebrow="EXPORT YOUR X-RAY"><p className="detail-intro">A self-contained record of what we observed, with evidence labels and limitations. Nothing is uploaded.</p><div className="export-options">{[{ format: "PNG" as const, icon: ImageIcon, desc: "A high-resolution technical poster" }, { format: "SVG" as const, icon: Code2, desc: "A crisp, editable vector map" }, { format: "JSON" as const, icon: FileJson, desc: "Structured observations and evidence" }].map(({ format, icon: Icon, desc }) => <button key={format} disabled={!!exporting} onClick={() => void exportReport(format)}><Icon size={22} strokeWidth={1.2} /><div><strong>{format}</strong><span>{desc}</span></div>{exporting === format ? <LoaderCircle className="spin" size={17} /> : <Download size={17} />}</button>)}</div><p className="scope-note">Exports contain the inspected path and public observations. Review them before sharing.</p></Dialog>
-    <Dialog open={shareOpen} onClose={() => setShareOpen(false)} title="Share the starting point." eyebrow="A LINK, NOT A SNAPSHOT"><p className="detail-intro">This link opens a fresh, user-initiated investigation of <strong>{i.url.hostname}</strong> over HTTPS. It does not preserve this observation, path, or query.</p><label htmlFor="share-url" className="eyebrow">HOSTNAME LINK</label><div className="share-field"><input id="share-url" value={shareUrl} readOnly onFocus={(e) => e.target.select()} /><button className="primary-button" onClick={async () => { try { await navigator.clipboard.writeText(shareUrl); setCopied(true); } catch { setNotice("Clipboard access isn't available. Select the link and copy it manually."); } }}>{copied ? <Check size={15} /> : <Link2 size={15} />}{copied ? "Copied" : "Copy"}</button></div><p className="scope-note">This is a local, private build. A localhost link works only on this machine. Use an export to share the actual findings.</p></Dialog>
+    <Dialog open={shareOpen} onClose={() => setShareOpen(false)} title="Share the starting point." eyebrow="A LINK, NOT A SNAPSHOT"><p className="detail-intro">This link opens a fresh, user-initiated investigation of <strong>{i.url.hostname}</strong> over HTTPS. It does not preserve this observation, path, or query.</p><label htmlFor="share-url" className="eyebrow">HOSTNAME LINK</label><div className="share-field"><input id="share-url" value={shareUrl} readOnly onFocus={(e) => e.target.select()} /><button className="primary-button" onClick={async () => { try { await navigator.clipboard.writeText(shareUrl); setCopied(true); } catch { setNotice("Clipboard access isn't available. Select the link and copy it manually."); } }}>{copied ? <Check size={15} /> : <Link2 size={15} />}{copied ? "Copied" : "Copy"}</button></div><p className="scope-note">{IS_BROWSER_EDITION ? "Opening this link shows the hostname and waits for the reader to confirm before anything is looked up. Use an export to share the actual findings." : "This link points at the app on this machine, so it works only here. Use an export to share the actual findings."}</p></Dialog>
     {notice && <div className="toast" role="status"><span>{notice}</span><button className="icon-button" aria-label="Dismiss notice" onClick={() => setNotice(null)}><X size={14} /></button></div>}
-    <div className="sr-only" role="status" aria-live="polite">{running ? `${Object.values(i.providers).filter((state) => state.status === "complete").length} of 5 investigation providers complete.` : i.finishedAt ? `Investigation complete. ${graph.edges.length} relationships found. ${missing} layers unavailable.` : "Investigation stopped. Collected evidence is still available."}</div>
+    <div className="sr-only" role="status" aria-live="polite">{running ? `${runnable.filter((id) => i.providers[id].status === "complete").length} of ${runnable.length} runnable investigation providers complete.${localOnly ? ` ${localOnly} layers run in the local app.` : ""}` : i.finishedAt ? `Investigation complete. ${graph.edges.length} relationships found. ${missing} layers unavailable.${localOnly ? ` ${localOnly} layers run in the local app.` : ""}` : "Investigation stopped. Collected evidence is still available."}</div>
   </main>;
 }

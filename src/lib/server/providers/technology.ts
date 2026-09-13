@@ -1,3 +1,5 @@
+import { inferNetworkInfrastructure } from "@/lib/network-hints";
+export { OPERATOR_HINTS } from "@/lib/network-hints";
 import type { InfrastructureGuess, Technology, TechnologyData } from "@/lib/types";
 import { LIMITS } from "../limits";
 import { truncate } from "../redact";
@@ -128,25 +130,6 @@ export const MARKUP_RULES: MarkupRule[] = [
   { marker: /js\.stripe\.com/i, label: "Stripe.js script", name: "Stripe", category: "Backend", confidence: "observed", explanation: "The document references Stripe.js." },
 ];
 
-/** Operators recognised in an ASN record, used only for an inferred hosting hint. */
-export const OPERATOR_HINTS: { pattern: RegExp; name: string }[] = [
-  { pattern: /amazon|aws|amazon-02|amazon-aes/i, name: "Amazon Web Services" },
-  { pattern: /cloudflare/i, name: "Cloudflare" },
-  { pattern: /google/i, name: "Google Cloud" },
-  { pattern: /microsoft|azure/i, name: "Microsoft Azure" },
-  { pattern: /akamai/i, name: "Akamai" },
-  { pattern: /fastly/i, name: "Fastly" },
-  { pattern: /digitalocean/i, name: "DigitalOcean" },
-  { pattern: /hetzner/i, name: "Hetzner" },
-  { pattern: /ovh/i, name: "OVH" },
-  { pattern: /linode/i, name: "Linode" },
-  { pattern: /github/i, name: "GitHub" },
-  { pattern: /shopify/i, name: "Shopify" },
-  { pattern: /automattic/i, name: "Automattic" },
-  { pattern: /vercel/i, name: "Vercel" },
-  { pattern: /netlify/i, name: "Netlify" },
-];
-
 /**
  * Derive technologies from the response that was actually received.
  *
@@ -232,15 +215,8 @@ export const technologyProvider: Provider<TechnologyProviderInput, TechnologyPro
       }
     }
 
-    for (const fact of input.networkFacts) {
-      for (const hint of OPERATOR_HINTS) {
-        if (!hint.pattern.test(fact.value)) continue;
-        addInfrastructure(
-          hint.name,
-          "Inferred from the network that announces the observed address. This describes the announcing network, not necessarily where the content is hosted.",
-          fact.evidenceId,
-        );
-      }
+    for (const hint of inferNetworkInfrastructure(input.networkFacts)) {
+      for (const evidenceId of hint.evidenceIds) addInfrastructure(hint.name, hint.explanation, evidenceId);
     }
 
     const data: TechnologyData = {

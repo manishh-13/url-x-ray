@@ -1,13 +1,10 @@
 # Security
 
-URL X-Ray fetches URLs that a person types. That makes the server a request forwarder, so the safety
-model is the interesting part of this project, and this document is the reference for it.
+The full local app makes bounded requests to public URLs. The hosted browser edition only queries public DNS and network sources. Their boundaries are described separately below.
 
-Read the scope section first. It changes what every other section means.
+## Scope: the local app is a private, local preview
 
-## Scope: private, local preview only
-
-This is a private, unreleased project intended to run on a developer's own machine, bound to
+The local app is intended to run on a developer's own machine, bound to
 `127.0.0.1`, and used by one person. The controls below exist to keep the instrument from being tricked
 into probing places it should not, and to keep the operator honest about what an investigation reveals.
 
@@ -15,7 +12,27 @@ They are **not** a multi-tenant or production defence. There is no authenticatio
 network interface, it would be an open request forwarder and a scanning proxy, and it would need a
 different design before that were acceptable. Do not deploy it publicly.
 
-## The request safety model
+## Scope: the hosted browser edition
+
+The hosted browser edition is a static export with no backend of ours: no API route in the artifact,
+nothing that accepts a request, and nothing that could forward one. It performs DNS and public network
+lookups only. No HTTP request is sent to the inspected website; its authoritative DNS operator can still see queries forwarded by the resolver. Query values
+and the fragment are discarded as in the local app, and the path is never sent anywhere because nothing
+requests the target. There are no accounts, cookies, analytics or stored history.
+
+Those lookups do go to third parties. Cloudflare DNS over HTTPS, Team Cymru over that same transport,
+and RIPEstat as a fallback receive the hostname, public address or ASN needed for each lookup. Cloudflare and RIPEstat can see the visitor's source IP. Team Cymru sees resolver-originated DNS questions. These services may log their requests. The local app uses the same public services, so this is a property of the lookup rather
+than of the hosting.
+
+Deployment is gated and auditable. `.github/workflows/pages.yml` runs only when the repository variable
+`ENABLE_PAGES` is `true`, the repository is public and the ref is `main`. Every third-party action is
+pinned to a commit SHA, the build job holds read permissions only, and the deploy job is the sole holder
+of `pages: write` and `id-token: write`. The uploaded artifact is the static export directory and
+nothing else, and both workflows verify that the export contains no API route, no dynamic route and no
+server output. No workflow uploads or serves the local app, and nothing deploys from a developer
+machine.
+
+## The local app request safety model
 
 ### Only publicly routable destinations
 

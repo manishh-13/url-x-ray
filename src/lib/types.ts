@@ -29,6 +29,8 @@ export interface Evidence {
 
 export interface ProviderState {
   status: ProviderStatus;
+  /** Intentionally omitted by this edition, not a failed observation. */
+  reason?: "local-only";
   message?: string;
   durationMs?: number;
 }
@@ -136,6 +138,8 @@ export interface TechnologyData {
 
 export interface Investigation {
   id: string;
+  /** Older local exports omit this field. */
+  edition?: "browser" | "local";
   url: ParsedUrl;
   startedAt: string;
   finishedAt?: string;

@@ -55,6 +55,7 @@ export async function* investigate(options: InvestigateOptions): AsyncGenerator<
 
   const investigation: Investigation = {
     id: deps.newId(),
+    edition: "local",
     url: parsed.url,
     startedAt: startedAt.toISOString(),
     providers: initialProviders(),

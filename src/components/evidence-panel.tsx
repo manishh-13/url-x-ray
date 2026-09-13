@@ -6,6 +6,8 @@ import type { Evidence, Investigation, Layer, NetworkAddress } from "@/lib/types
 import { ConfidenceBadge, Dialog, layerNames, SourceLink } from "./primitives";
 import { groupNetworkAddresses } from "@/lib/insights";
 import { LayerGlossary } from "./layer-glossary";
+import { LocalOnlyPanel } from "./edition";
+import { isLocalOnly } from "@/lib/edition";
 
 function date(value: string) {
   const parsed = new Date(value);
@@ -32,13 +34,14 @@ function DefinitionList({ items }: { items: { label: string; value: string; help
 }
 
 function UrlDetails({ investigation: i }: { investigation: Investigation }) {
+  const browser = i.edition === "browser";
   return <><p className="detail-intro">An address is an instruction. Each part tells the browser what to ask for and where to ask.</p>
     <DefinitionList items={[
-      { label: "Scheme", value: `${i.url.scheme}://`, help: i.url.scheme === "https" ? "Requests an encrypted connection. The TLS layer checks what was actually observed." : "Requests an unencrypted HTTP connection. A redirect may upgrade it to HTTPS." },
+      { label: "Scheme", value: `${i.url.scheme}://`, help: i.url.scheme === "https" ? browser ? "Asks for an encrypted connection. Inspecting the certificate behind it needs the local app." : "Requests an encrypted connection. The TLS layer checks what was actually observed." : "Requests an unencrypted HTTP connection. A redirect may upgrade it to HTTPS." },
       { label: "Hostname", value: i.url.hostname, help: "The name DNS tries to turn into a network address." },
       { label: "Port", value: i.url.port || (i.url.scheme === "https" ? "443 (default)" : "80 (default)"), help: "Only standard public web ports are allowed." },
-      { label: "Path", value: i.url.pathname, help: "The resource being requested. Paths are retained and can themselves contain sensitive data." },
-      { label: "Query", value: i.url.hasQuery ? "Removed before requesting" : "Not present", help: "All query parameters are discarded. The response may differ from the original URL." },
+      { label: "Path", value: i.url.pathname, help: browser ? "The resource a browser would ask for. This edition never requests it, and the path stays in this browser and in anything you export." : "The resource being requested. Paths are retained and can themselves contain sensitive data." },
+      { label: "Query", value: i.url.hasQuery ? browser ? "Removed before any lookup" : "Removed before requesting" : "Not present", help: browser ? "All query parameters are discarded. Only the hostname is used for the lookups this edition makes." : "All query parameters are discarded. The response may differ from the original URL." },
       { label: "Fragment", value: i.url.hasFragment ? "Removed" : "Not present", help: "A browser-side reference. It is never sent in an HTTP request." },
     ]} /></>;
 }
@@ -56,6 +59,7 @@ function DnsDetails({ investigation: i }: { investigation: Investigation }) {
 }
 
 export function RedirectDetails({ investigation: i }: { investigation: Investigation }) {
+  if (isLocalOnly(i, "http")) return <LocalOnlyPanel layer="http" />;
   if (!i.http?.hops.length) return <UnknownLayer message={i.http?.stoppedReason || i.providers.http.message || "The HTTP response hasn't arrived yet."} />;
   return <><p className="detail-intro">{i.http.chainComplete ? i.http.redirectCount ? `The request followed ${i.http.redirectCount} ${i.http.redirectCount === 1 ? "redirect" : "redirects"} before reaching this response.` : "No redirect chain detected in this HTTP observation." : "Only part of the redirect chain could be observed."}</p>
     <div className="redirect-chain">{i.http.hops.map((hop, n) => <div className="redirect-hop" key={`${hop.url}-${n}`}><div className="redirect-track"><span className={`http-status ${hop.status >= 400 ? "status-warning" : ""}`}>{hop.status}</span>{n < i.http!.hops.length - 1 && <div className="redirect-line"><ArrowDown size={14} /></div>}</div><div className="hop-content"><code>{hop.url}</code><span>{n === 0 ? "Initial request" : `Hop ${n}`} · {Math.round(hop.durationMs)} ms{hop.address ? ` · ${hop.address}` : ""}</span>{hop.location && <small>Redirect to {hop.location}</small>}<details className="hop-headers"><summary>Response headers</summary><div className="header-values">{Object.entries(hop.headers).map(([key, value]) => <div key={key}><strong>{key}</strong><code>{value}</code></div>)}</div></details></div></div>)}</div>
@@ -67,6 +71,7 @@ export function RedirectDetails({ investigation: i }: { investigation: Investiga
 }
 
 function TlsDetails({ investigation: i }: { investigation: Investigation }) {
+  if (isLocalOnly(i, "tls")) return <LocalOnlyPanel layer="tls" />;
   if (!i.tls) return <UnknownLayer message={i.providers.tls.message ?? "TLS information couldn't be retrieved yet."} />;
   const tls = i.tls;
   const start = new Date(tls.validFrom).getTime(), end = new Date(tls.validTo).getTime(), now = new Date(i.startedAt).getTime();
@@ -106,9 +111,12 @@ export function NetworkDetails({ investigation: i }: { investigation: Investigat
 
 function TechnologyDetails({ investigation: i, infrastructure = false }: { investigation: Investigation; infrastructure?: boolean }) {
   const signals = infrastructure ? i.technology?.infrastructure : i.technology?.technologies;
-  return <><p className="detail-intro">{infrastructure ? "These platform suggestions come from response signals. Expand one to explore the evidence behind it." : "Explore recognizable technology signals in the response headers and HTML."}</p>
+  const localOnly = isLocalOnly(i, "technology");
+  if (localOnly && (!infrastructure || !signals?.length)) return <LocalOnlyPanel layer={infrastructure ? "infrastructure" : "technology"} />;
+  return <><p className="detail-intro">{infrastructure ? localOnly ? "These affiliation hints come from the live DNS and network evidence in this edition. Expand one to see the records behind it." : "These platform suggestions come from response signals. Expand one to explore the evidence behind it." : "Explore recognizable technology signals in the response headers and HTML."}</p>
     {!signals?.length && <UnknownLayer message={infrastructure ? "The collected evidence doesn't support naming an edge or hosting provider." : "No supported technology signatures were observed. This does not mean the page uses no frameworks."} />}
     {signals?.map((signal) => <div className="technology-detail" key={signal.name}><div><h3>{signal.name}</h3><ConfidenceBadge confidence={signal.confidence} /></div>{"category" in signal && <span className="technology-category">{signal.category}</span>}<p>{signal.explanation}</p><details className="raw-details"><summary>Why do you think this?</summary><EvidenceList evidence={i.evidence.filter((e) => signal.evidenceIds.includes(e.id))} /></details></div>)}
+    {infrastructure && localOnly && <p className="scope-note">Only names supported by a live DNS or network record appear here. Header and HTML based inference, including edge providers that show up only in a response, needs the local app.</p>}
     {!infrastructure && i.technology && <p className="scope-note">Inspected {Math.round(i.technology.analyzedBytes / 1024)} KB of the final response. {i.technology.truncated ? "The response was capped; more signals may exist beyond this limit." : "No scripts were executed and no linked assets were fetched."}</p>}
   </>;
 }

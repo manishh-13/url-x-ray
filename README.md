@@ -4,15 +4,39 @@ An evidence-first, interactive map of the public Internet infrastructure behind 
 
 A small project for curious people and anyone investigating a public URL. Paste an address to see its DNS records, redirects, response headers, certificate and network connections come together.
 
-Start with **What happened**, a short takeaway about this request. When the evidence shows a problem, **What to check next** points to the relevant details. Overview keeps the story to five findings; **Show all findings** opens the full explanation, and every layer has an optional plain-language glossary.
+Start with **What happened**, a short takeaway about the observation. When the evidence shows a problem, **What to check next** points to the relevant details. Overview keeps the story to five findings; **Show all findings** opens the full explanation, and every layer has an optional plain-language glossary.
 
 Observed facts and inferred platform hints stay labelled, with the collected evidence a click away. Light mode is the default; a softer dark theme is available for the current visit.
 
-> **Private, unreleased project.** This repository is not published, not licensed for use outside the
-> project, and not hardened for multi-tenant or production hosting. See [LICENSE](LICENSE) and
-> [SECURITY.md](SECURITY.md).
+> **Release pending.** The repository is still private and its open-source licence has not been chosen. No hosted site has been published. See [LICENSE](LICENSE).
 
 ![URL X-Ray investigating a hostname](docs/xray-sequence.gif)
+
+## Two editions of the same instrument
+
+The interface, the evidence model and the DNS and network collection code are shared. What differs is
+whether the app can open a connection to the site being inspected.
+
+| Layer | Hosted browser edition | Full local app |
+| --- | --- | --- |
+| URL parsing, validation and the public boundary check | yes | yes |
+| DNS records over DNS over HTTPS (A, AAAA, CNAME, NS, MX, TXT, CAA, HTTPS, SVCB) | yes, live | yes, live |
+| IP and network: ASN, announcing organisation, prefix, registry country | yes, live | yes, live |
+| Reverse DNS (PTR) for the observed addresses | yes, live | yes, live |
+| Network affiliation hints, labelled as inferred (not proof of hosting) | yes | yes |
+| Redirect chain, final status and response headers | no | yes |
+| TLS certificate: issuer, validity, names, chain | no | yes |
+| Response technologies from headers and HTML | no | yes |
+| Findings, graph, evidence panel, JSON, SVG and PNG export | yes, for the layers above | yes |
+
+Cross-origin response inspection depends on the target opting in with CORS, a browser permission. Arbitrary websites do not reliably expose their redirect chains, headers or HTML this way. Certificates are not exposed to page JavaScript at all. The hosted edition says so in
+place, with the reason, instead of showing an empty panel, and it never requests the site you are
+inspecting: it asks a public resolver about the name and a public registry about the addresses that came
+back, and nothing else leaves the browser. The URL path stays in the browser and in any report exported
+from it.
+
+The hosted edition relies on free third-party lookups (Cloudflare DNS over HTTPS, Team Cymru, RIPEstat)
+and GitHub Pages. Public-repository Pages hosting is free today and needs no payment method, but service policies and usage limits can change. Both editions depend on the public lookup services.
 
 ## Requirements
 
@@ -23,15 +47,27 @@ No API keys, accounts, or `.env` file are required to run the instrument. The in
 
 ## Getting started
 
+Install Node.js 22 or newer first. No API keys or configuration are needed.
+
+**Download the project:** get [the ZIP](https://github.com/manishh-13/url-x-ray/archive/refs/heads/main.zip), extract it, and open a terminal in the extracted folder containing `package.json`. Run:
+
 ```bash
 npm ci
 npm run dev
 ```
 
-Then open <http://127.0.0.1:3099>.
+Then open <http://127.0.0.1:3099>. The server binds only to your machine. Keep it local, do not expose this request-making backend as a public service.
 
-The dev server binds `127.0.0.1` deliberately: the instrument makes outbound requests on behalf of
-whoever can reach it, so it should not be listening on a shared interface.
+Prefer git instead of a ZIP?
+
+```bash
+git clone https://github.com/manishh-13/url-x-ray.git
+cd url-x-ray
+npm ci
+npm run dev
+```
+
+The source and ZIP currently require access to the private repository. Once published, visitors will be able to download them without an account.
 
 ## Scripts
 
@@ -44,10 +80,37 @@ whoever can reach it, so it should not be listening on a shared interface.
 | `npm test` | Vitest unit tests (`tests/unit/**/*.test.ts`) |
 | `npm run test:e2e` | Playwright end-to-end tests (`tests/e2e`) |
 | `npm run check` | typecheck, then unit tests, then build |
+| `npm run typecheck:pages` | `tsc --noEmit` for the static shell in `pages-app` |
+| `npm run build:pages` | Static export of the hosted browser edition into `pages-app/out` |
+| `npm run preview:pages` | Serve that export from `127.0.0.1:3100` under `/url-x-ray` |
+| `npm run test:pages` | Playwright tests for the export (`tests/e2e/pages*.spec.ts`) |
+| `npm run check:pages` | typecheck the shell, then build the export |
+
+`npm run dev`, `npm run build` and `npm start` are unchanged by the static shell: the local app is
+still one Next application on `127.0.0.1:3099`, and its build output stays in `.next` while the export
+builds into `pages-app/.next` and `pages-app/out`.
+
+## Preview the hosted edition
+
+```bash
+npm run build:pages
+npm run preview:pages
+```
+
+Open <http://127.0.0.1:3100/url-x-ray/>. This serves the static artifact, not the full local backend. The project subpath is tested so assets and shared hostname links work on GitHub Pages. Set `PAGES_BASE_PATH` consistently when building and previewing a different mount point; an empty value builds for a domain root.
+
+### Enable Pages after release approval
+
+1. Choose an open-source licence and make the repository public after reviewing what will be published.
+2. In repository **Settings > Pages**, select **GitHub Actions** as the source.
+3. Add the repository Actions variable `ENABLE_PAGES` with the value `true`.
+4. Run **Deploy static shell to GitHub Pages** on `main`, or push a reviewed change to `main`.
+
+The workflow obtains the actual Pages base path, builds only the static edition and uploads `pages-app/out`. It stays disabled while the repository is private or the variable is unset. No hosting account, API key or payment method is needed for this setup. The full local backend is never deployed.
 
 ## How a run works
 
-The client posts a URL to the investigation API and reads the response as a stream of
+In the full local app, the client posts a URL to the investigation API and reads the response as a stream of
 newline-delimited JSON (NDJSON) events, so each layer appears as soon as it resolves instead of the
 page waiting for the slowest lookup.
 
@@ -61,7 +124,9 @@ POST /api/investigate    { "url": "https://example.com/path" }
 ```
 
 `start`, `update`, `complete`, and `error` are the four event types; `complete` and `error` are
-terminal. The decoder in `src/lib/client/stream.ts` is independent of network chunk boundaries, and
+terminal. In the hosted browser edition there is no app API request: the same event
+sequence is produced in the page by `src/lib/client/browser-investigate.ts` and consumed by the same
+hook, so both editions share one contract. The decoder in `src/lib/client/stream.ts` is independent of network chunk boundaries, and
 `src/lib/client/use-investigation.ts` owns cancellation and per-run generation tracking so a stale
 stream can never overwrite a newer one.
 
