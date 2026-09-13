@@ -1,7 +1,7 @@
 # Contributing
 
-This is a private, unreleased project with a small group of contributors. There is no external
-contribution process. These are the working conventions for the people on it.
+This is a small personal project under the MIT licence. Issues and pull requests are welcome, and a
+short issue before a large change saves everyone time. These are the working conventions.
 
 ## Setup
 
@@ -117,6 +117,5 @@ loosen a check to make a test pass.
 ## Commits and reviews
 
 Small, self-contained commits with a subject line that says what changed and why. A change that spans
-several files should say in the description which of the areas above it touches. Because the repository
-is private, nothing here is a public promise; the bar is still that `npm run check` passes and the
-documentation matches the code.
+several files should say in the description which of the areas above it touches. The bar for a change is
+that `npm run check` passes, the Playwright suites pass, and the documentation matches the code.

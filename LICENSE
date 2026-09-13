@@ -1,27 +1,21 @@
-URL X-Ray
+MIT License
 
-Copyright (c) 2026 the URL X-Ray project owner. All rights reserved.
+Copyright (c) 2026 Manish S
 
-This is not an open source license.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-This repository is a private, unreleased work in progress. It has deliberately not been placed under
-an open source license, because no decision has been made about publishing it, and licensing a project
-publicly is not a step to take by default or in passing.
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-No license or other right is granted here. In particular, no permission is granted to any person to
-use, copy, modify, merge, publish, distribute, sublicense, or sell this software or any part of it, and
-no patent or trademark right is granted or implied.
-
-Access to this repository is granted directly by the project owner to named contributors, for the sole
-purpose of working on this project. That access is not a transfer of ownership and not a license to use
-the software for anything else. Do not redistribute the source, publish it, or copy it into another
-project or repository, including a public one.
-
-Third-party dependencies are covered by their own licenses, which are unaffected by this notice and
-apply to those packages on their own terms.
-
-If the project is ever released, this file will be replaced with the license chosen at that time. Until
-then, treat the contents of this repository as confidential and unlicensed.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT
-LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

@@ -8,7 +8,7 @@ Start with **What happened**, a short takeaway about the observation. When the e
 
 Observed facts and inferred platform hints stay labelled, with the collected evidence a click away. Light mode is the default; a softer dark theme is available for the current visit.
 
-> **Release pending.** The repository is still private and its open-source licence has not been chosen. No hosted site has been published. See [LICENSE](LICENSE).
+> **MIT licensed.** Free to use, fork and modify. The hosted edition runs entirely in your browser. The full local app adds the certificate, redirect, header and technology checks. See [LICENSE](LICENSE).
 
 ![URL X-Ray investigating a hostname](docs/xray-sequence.gif)
 
@@ -67,7 +67,7 @@ npm ci
 npm run dev
 ```
 
-The source and ZIP currently require access to the private repository. Once published, visitors will be able to download them without an account.
+No account is needed to download either one.
 
 ## Scripts
 
@@ -99,14 +99,9 @@ npm run preview:pages
 
 Open <http://127.0.0.1:3100/url-x-ray/>. This serves the static artifact, not the full local backend. The project subpath is tested so assets and shared hostname links work on GitHub Pages. Set `PAGES_BASE_PATH` consistently when building and previewing a different mount point; an empty value builds for a domain root.
 
-### Enable Pages after release approval
+### How the hosted edition is deployed
 
-1. Choose an open-source licence and make the repository public after reviewing what will be published.
-2. In repository **Settings > Pages**, select **GitHub Actions** as the source.
-3. Add the repository Actions variable `ENABLE_PAGES` with the value `true`.
-4. Run **Deploy static shell to GitHub Pages** on `main`, or push a reviewed change to `main`.
-
-The workflow obtains the actual Pages base path, builds only the static edition and uploads `pages-app/out`. It stays disabled while the repository is private or the variable is unset. No hosting account, API key or payment method is needed for this setup. The full local backend is never deployed.
+`.github/workflows/pages.yml` publishes it to GitHub Pages on a push to `main`, and only when the repository is public and the Actions variable `ENABLE_PAGES` is `true`. It reads the real Pages base path, builds the static edition and uploads `pages-app/out` alone. GitHub Pages is free for public repositories and needs no payment method. The local backend is never deployed.
 
 ## How a run works
 

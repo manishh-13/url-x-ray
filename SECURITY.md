@@ -122,6 +122,7 @@ written by this project; an upstream response body is not surfaced as an error.
 
 ## Reporting a problem
 
-This repository is private and unreleased, so there is no external disclosure process. Raise anything
-security-relevant directly with the project owner, privately, before it is written into a shared
-channel. Please do not include a live sensitive URL in a report; describe the shape of it instead.
+Report anything security-relevant privately first, through **Security > Report a vulnerability** on the
+repository, rather than in a public issue. Please do not include a live sensitive URL in a report:
+describe the shape of it instead. This is a small personal project maintained in spare time, so there is
+no response-time commitment, and a fix may be a documentation change rather than code.
