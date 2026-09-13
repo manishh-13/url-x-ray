@@ -2,7 +2,7 @@
 
 An evidence-first, interactive map of the public Internet infrastructure behind a URL.
 
-A small project for curious people and anyone investigating a public URL. Paste an address to see its DNS records, redirects, response headers, certificate and network connections come together.
+A small project for curious people and anyone investigating a public URL. The browser edition maps live DNS records and public networks behind an address. The full local app adds redirects, response headers, TLS certificates and response-technology checks.
 
 Start with **What happened**, a short takeaway about the observation. When the evidence shows a problem, **What to check next** points to the relevant details. Overview keeps the story to five findings; **Show all findings** opens the full explanation, and every layer has an optional plain-language glossary.
 
@@ -10,9 +10,11 @@ Observed facts and inferred platform hints stay labelled, with the collected evi
 
 > **MIT licensed.** Free to use, fork and modify. The hosted edition runs entirely in your browser. The full local app adds the certificate, redirect, header and technology checks. See [LICENSE](LICENSE).
 
+**[Try it online](https://manishh-13.github.io/url-x-ray/)** with no installation or account. **[Run it locally](#getting-started-local-app)** for the additional checks.
+
 ![The light-theme browser edition investigating example.com and exploring DNS and network evidence](docs/xray-sequence.gif)
 
-Recorded from the live browser edition. [Try URL X-Ray](https://manishh-13.github.io/url-x-ray/).
+Recorded from the live browser edition.
 
 ## Two editions of the same instrument
 
@@ -40,14 +42,16 @@ from it.
 The hosted edition relies on free third-party lookups (Cloudflare DNS over HTTPS, Team Cymru, RIPEstat)
 and GitHub Pages. Public-repository Pages hosting is free today and needs no payment method, but service policies and usage limits can change. Both editions depend on the public lookup services.
 
-## Requirements
+## Requirements for the local app
+
+The hosted edition needs nothing installed: open the link above in a browser. The requirements and setup steps below are for running the project on your own machine.
 
 - Node.js 22 or newer (`engines.node: ">=22"`)
 - npm (the repository ships a `package-lock.json`; use `npm ci`)
 
 No API keys, accounts, or `.env` file are required to run the instrument. The interface uses the platform system font stack, so it feels native on Apple, Windows, and Android devices and does not contact a font CDN.
 
-## Getting started
+## Getting started (local app)
 
 Install Node.js 22 or newer first. No API keys or configuration are needed.
 
@@ -99,7 +103,7 @@ npm run build:pages
 npm run preview:pages
 ```
 
-Open <http://127.0.0.1:3100/url-x-ray/>. This serves the static artifact, not the full local backend. The project subpath is tested so assets and shared hostname links work on GitHub Pages. Set `PAGES_BASE_PATH` consistently when building and previewing a different mount point; an empty value builds for a domain root.
+Open <http://127.0.0.1:3100/url-x-ray/>. This serves the static artifact, not the full local backend. The project subpath is tested so assets and shared hostname links work on GitHub Pages. Set `PAGES_BASE_PATH` consistently when building and previewing a different mount point; an empty value builds for a domain root. `PAGES_SITE_ORIGIN` sits alongside it and takes the HTTPS origin of your own hosted copy, for example `https://example.org`, so a fork or custom domain points its canonical and social URLs at itself rather than at this repository's site. The Pages workflow supplies both the origin and the base path from `configure-pages` automatically.
 
 ### How the hosted edition is deployed
 

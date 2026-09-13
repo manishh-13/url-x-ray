@@ -11,7 +11,7 @@ const localOnlyHeadings: Record<LocalOnlyLayer, string> = {
   http: "Redirects and headers need the local app.",
   tls: "Certificate inspection needs the local app.",
   technology: "Response technologies need the local app.",
-  infrastructure: "Response based platform clues need the local app.",
+  infrastructure: "Response-based platform clues need the local app.",
 };
 
 const browserLimits: Record<LocalOnlyLayer, string> = {
@@ -22,7 +22,7 @@ const browserLimits: Record<LocalOnlyLayer, string> = {
 };
 
 function localOnlyMessage(layer: LocalOnlyLayer) {
-  return layer === "infrastructure" ? "Run the project locally to add header and HTML based platform inference." : LOCAL_ONLY_MESSAGES[layer];
+  return layer === "infrastructure" ? "Run the project locally to add platform inference from headers and HTML." : LOCAL_ONLY_MESSAGES[layer];
 }
 
 export function EditionBadge() {
@@ -87,7 +87,7 @@ export function EditionCapabilities({ variant = "landing" }: { variant?: "landin
         <div className="capability-heading"><Radio size={17} strokeWidth={1.4} aria-hidden="true" /><h3>Live in this browser</h3></div>
         <ul>
           <li><strong>DNS records</strong><span>A, AAAA, CNAME, NS, MX, TXT, CAA and more, over DNS over HTTPS.</span></li>
-          <li><strong>IP and network</strong><span>ASN and announcing organization for each observed address.</span></li>
+          <li><strong>IP and network</strong><span>ASN and announcing organisation for each observed address.</span></li>
           <li><strong>Reverse DNS</strong><span>PTR names for the addresses DNS returned.</span></li>
         </ul>
       </div>

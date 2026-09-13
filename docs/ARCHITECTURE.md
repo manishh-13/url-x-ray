@@ -100,9 +100,10 @@ type InvestigationEvent =
 
 Design points that the decoder depends on, and that any server implementation must honour:
 
-- **Every event carries the whole `Investigation`.** Events are snapshots, not patches, so a client
-  that joins late or drops an intermediate event still renders a coherent state. The cost is
-  redundancy on the wire, which is acceptable for a single local run.
+- **`start`, `update` and `complete` each carry the whole `Investigation`.** Those events are
+  snapshots, not patches, so a client that joins late or drops an intermediate event still renders a
+  coherent state. The cost is redundancy on the wire, which is acceptable for a single local run.
+  `error` carries only a message and no investigation, so a client keeps the last snapshot it has.
 - **`complete` and `error` are terminal.** If the stream ends without either, the decoder treats the
   run as truncated and surfaces a message saying so while keeping the evidence already collected.
 - **`error.message` is presentation text.** It is written to be shown to a person: no stack traces, no

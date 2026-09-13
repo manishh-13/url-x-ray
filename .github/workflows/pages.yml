@@ -66,6 +66,7 @@ jobs:
       - name: Build the static export
         env:
           PAGES_BASE_PATH: ${{ steps.pages.outputs.base_path }}
+          PAGES_SITE_ORIGIN: ${{ steps.pages.outputs.origin }}
         run: npm run build:pages
 
       - name: Verify the export is static only

@@ -1,6 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { basePathFromEnv } from "../scripts/base-path.mjs";
+import { siteOriginFromEnv } from "../scripts/site-origin.mjs";
 
 /**
  * The static shell. This project is a second, tiny Next application whose only
@@ -36,6 +37,7 @@ const config = {
   env: {
     NEXT_PUBLIC_XRAY_EDITION: "browser",
     NEXT_PUBLIC_BASE_PATH: basePath,
+    NEXT_PUBLIC_SITE_ORIGIN: siteOriginFromEnv(),
   },
 };
 

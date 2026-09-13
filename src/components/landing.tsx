@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { motion } from "motion/react";
 import { useMotionPreference } from "@/lib/client/use-motion-preference";
 import { ArrowRight, ArrowUpRight, CornerDownLeft, Globe2, ScanLine, Braces, Network, Fingerprint, Route } from "lucide-react";
-import { IS_BROWSER_EDITION } from "@/lib/edition";
+import { IS_BROWSER_EDITION, REPOSITORY_URL } from "@/lib/edition";
 import { EditionCapabilities } from "./edition";
 
 const examples = ["github.com", "cloudflare.com", "aws.amazon.com", "vercel.com"];
@@ -96,6 +96,7 @@ export function Landing({ onSubmit, error }: { onSubmit: (url: string) => void; 
           <div className="example-links">{examples.map((example) => <button key={example} onMouseEnter={() => setPreview(example)} onMouseLeave={() => setPreview(null)} onFocus={() => setPreview(example)} onBlur={() => setPreview(null)} onClick={() => onSubmit(`https://${example}`)}>{example}</button>)}</div>
         </div>
         <p id="input-privacy" className="input-privacy">Public URLs only. No sign-in. No saved investigations.{IS_BROWSER_EDITION ? " DNS and network run live in this browser." : ""}</p>
+        <a className="project-source" href={REPOSITORY_URL} target="_blank" rel="noopener noreferrer">GitHub source<ArrowUpRight size={14} aria-hidden="true" /></a>
       </motion.div>
     </section>
     <motion.section className="landing-instrument" tabIndex={0} initial={reduced ? false : { opacity: 0, y: 22 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .85, delay: .2 }} aria-label="Scrollable introduction to the infrastructure map">

@@ -100,7 +100,7 @@ export function NetworkDetails({ investigation: i }: { investigation: Investigat
     {addresses.length === 0 && <UnknownLayer message={i.providers.network.message ?? "No publicly routable addresses were available to explore."} />}
     <div className="network-addresses">{groups.map((group) => <section className="network-group" key={group.id}><header className="network-group-heading"><h3>{group.asn || "Network not identified"}</h3><p>{group.organizations.join(", ")}{group.organizations.length ? " · " : ""}{group.addresses.length} {group.addresses.length === 1 ? "address" : "addresses"}</p></header>{group.addresses.map((address) => <details className="network-address" key={address.ip} open={addresses.length === 1}><summary><span className="record-type">IPv{address.version}</span><code>{address.ip}</code><ArrowUpRight size={15} /></summary><DefinitionList items={[
       { label: "ASN", value: address.asn ?? "Unknown" },
-      { label: "Organization", value: address.organization ?? "Unknown", help: "The organization reported for this network by the data source." },
+      { label: "Organisation", value: address.organization ?? "Unknown", help: "The organisation reported for this network by the data source." },
       { label: "Network prefix", value: address.prefix ?? "Unknown" },
       { label: "Registry country", value: address.country ?? "Unknown", help: "Registration metadata, not the physical location of the server or edge." },
       { label: "Reverse DNS", value: address.ptr?.length ? address.ptr.join(", ") : "Not available" },
@@ -113,10 +113,10 @@ function TechnologyDetails({ investigation: i, infrastructure = false }: { inves
   const signals = infrastructure ? i.technology?.infrastructure : i.technology?.technologies;
   const localOnly = isLocalOnly(i, "technology");
   if (localOnly && (!infrastructure || !signals?.length)) return <LocalOnlyPanel layer={infrastructure ? "infrastructure" : "technology"} />;
-  return <><p className="detail-intro">{infrastructure ? localOnly ? "These affiliation hints come from the live DNS and network evidence in this edition. Expand one to see the records behind it." : "These platform suggestions come from response signals. Expand one to explore the evidence behind it." : "Explore recognizable technology signals in the response headers and HTML."}</p>
+  return <><p className="detail-intro">{infrastructure ? localOnly ? "These affiliation hints come from the live DNS and network evidence in this edition. Expand one to see the records behind it." : "These platform suggestions come from response signals. Expand one to explore the evidence behind it." : "Explore recognisable technology signals in the response headers and HTML."}</p>
     {!signals?.length && <UnknownLayer message={infrastructure ? "The collected evidence doesn't support naming an edge or hosting provider." : "No supported technology signatures were observed. This does not mean the page uses no frameworks."} />}
     {signals?.map((signal) => <div className="technology-detail" key={signal.name}><div><h3>{signal.name}</h3><ConfidenceBadge confidence={signal.confidence} /></div>{"category" in signal && <span className="technology-category">{signal.category}</span>}<p>{signal.explanation}</p><details className="raw-details"><summary>Why do you think this?</summary><EvidenceList evidence={i.evidence.filter((e) => signal.evidenceIds.includes(e.id))} /></details></div>)}
-    {infrastructure && localOnly && <p className="scope-note">Only names supported by a live DNS or network record appear here. Header and HTML based inference, including edge providers that show up only in a response, needs the local app.</p>}
+    {infrastructure && localOnly && <p className="scope-note">Only names supported by a live DNS or network record appear here. Inference from headers and HTML, including edge providers that show up only in a response, needs the local app.</p>}
     {!infrastructure && i.technology && <p className="scope-note">Inspected {Math.round(i.technology.analyzedBytes / 1024)} KB of the final response. {i.technology.truncated ? "The response was capped; more signals may exist beyond this limit." : "No scripts were executed and no linked assets were fetched."}</p>}
   </>;
 }

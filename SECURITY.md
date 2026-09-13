@@ -2,7 +2,7 @@
 
 The full local app makes bounded requests to public URLs. The hosted browser edition only queries public DNS and network sources. Their boundaries are described separately below.
 
-## Scope: the local app is a private, local preview
+## Scope: the local app is private and single-user
 
 The local app is intended to run on a developer's own machine, bound to
 `127.0.0.1`, and used by one person. The controls below exist to keep the instrument from being tricked
@@ -93,7 +93,7 @@ crawler, and a hostile page cannot run code in the investigation path.
 
 Outbound requests carry no cookies, no `Authorization` header, and no credentials of any kind, and
 `Set-Cookie` is not honoured or persisted. The browser-to-app request is sent with
-`credentials: "omit"`. Every investigation is anonymous and stateless from the target's point of view.
+`credentials: "omit"`. This does not hide the source IP address, timing or requested path. Targets can still log and correlate that information.
 
 ### Bounded work
 
@@ -110,8 +110,9 @@ degrades the run rather than exhausting the process.
 - No third-party scanning service. Nothing in the codebase talks to urlscan.io or any equivalent.
   Optional external enrichment is V3 on the roadmap and is not implemented.
 - No port scanning, no path or directory enumeration, no vulnerability probing, no authentication
-  attempts. The instrument requests exactly the URL it was given and follows the redirects that URL
-  returns.
+  attempts. The local app requests only the URL it was given, minus the discarded query string and
+  fragment, and follows the redirects that URL returns. The hosted browser edition sends no request to
+  the target at all.
 
 ## Handling of untrusted input
 
@@ -123,6 +124,6 @@ written by this project; an upstream response body is not surfaced as an error.
 ## Reporting a problem
 
 Report anything security-relevant privately first, through **Security > Report a vulnerability** on the
-repository, rather than in a public issue. Please do not include a live sensitive URL in a report:
+[repository security page](https://github.com/manishh-13/url-x-ray/security), rather than in a public issue. Please do not include a live sensitive URL in a report:
 describe the shape of it instead. This is a small personal project maintained in spare time, so there is
 no response-time commitment, and a fix may be a documentation change rather than code.

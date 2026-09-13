@@ -5,6 +5,12 @@
 .edition-badge { display: flex; align-items: center; gap: 8px; color: var(--muted-dim); font: .75rem var(--font-mono); letter-spacing: .12em; border-left: 1px solid var(--line); padding-left: 22px; white-space: nowrap; }
 .edition-badge > span { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-soft); }
 
+.project-source { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; color: var(--muted); font-size: .84rem; text-decoration: underline; text-underline-offset: 3px; }
+.project-source:hover { color: var(--accent-soft); }
+.hero-input-area > .project-source { margin-top: 4px; }
+.site-footer .footer-links { justify-self: end; flex-wrap: wrap; justify-content: flex-end; gap: 8px 18px; }
+.site-footer .footer-links svg { width: 14px; }
+
 /* The nav resets buttons to flat text, so the header action restates its own
    border, surface and colour, as the theme toggle does. */
 .site-header nav .run-locally-compact { min-height: 36px; padding: 0 13px !important; border: 1px solid var(--line-strong) !important; border-radius: 999px; background: var(--surface-raised) !important; color: var(--text-soft) !important; font-size: .8rem; font-weight: 620; gap: 7px; }

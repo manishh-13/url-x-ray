@@ -3,7 +3,7 @@ import type { Layer } from "@/lib/types";
 const terms: Partial<Record<Layer, [string, string][]>> = {
   url: [
     ["Hostname", "The website name in the address, such as example.com."],
-    ["Path", "The resource you asked for, such as /about. Query parameters follow a question mark; this tool removes them before requesting the page."],
+    ["Path", "The resource named in the URL, such as /about. Query parameters follow a question mark and are removed before any lookup or request. Only the local app requests the page."],
     ["Port", "The numbered entrance for a connection. Websites normally use 443 for HTTPS and 80 for HTTP."],
   ],
   dns: [
@@ -19,7 +19,7 @@ const terms: Partial<Record<Layer, [string, string][]>> = {
     ["HTTP status", "The server's response code: 2xx means success, 3xx often redirects elsewhere, and 4xx or 5xx describes a request or server error."],
     ["Redirect", "A response that tells the client to request another URL. Each response along the way is a hop."],
     ["Response headers", "Metadata sent with the response, including content type, cache instructions and sometimes server or request identifiers."],
-    ["GET", "The request method used to retrieve a resource. This observation sends a GET without browser cookies or sign-in credentials."],
+    ["GET", "The request method used to retrieve a resource. The local app uses GET without browser cookies or sign-in credentials. The browser edition does not request the inspected website."],
   ],
   tls: [
     ["TLS", "Transport Layer Security encrypts an HTTPS connection. Certificate validation checks the endpoint's identity against the requested hostname and trusted issuers."],
@@ -35,7 +35,7 @@ const terms: Partial<Record<Layer, [string, string][]>> = {
     ["Reverse DNS", "A PTR record that looks up a name from an IP address, the reverse of an ordinary address lookup."],
   ],
   technology: [
-    ["Technology signal", "A recognizable name or pattern in response headers or HTML, such as a server header or framework marker."],
+    ["Technology signal", "A recognisable name or pattern in response headers or HTML, such as a server header or framework marker."],
     ["Observed and inferred", "Observed information came directly from this run. An inference is an explanation suggested by those observations."],
   ],
   infrastructure: [
