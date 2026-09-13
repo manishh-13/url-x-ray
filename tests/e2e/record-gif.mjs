@@ -1,41 +1,100 @@
 import { chromium } from "playwright";
-import { mkdir, rm } from "node:fs/promises";
-import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { existsSync } from "node:fs";
+import { mkdir, writeFile } from "node:fs/promises";
+import { resolve, join } from "node:path";
 
-const root = fileURLToPath(new URL("../..", import.meta.url));
-const frames = join(root, "docs/.xray-frames");
-await rm(frames, { recursive: true, force: true });
+const directory = process.argv[2];
+if (!directory) throw new Error("Usage: node tests/e2e/record-gif.mjs <empty-frame-directory>");
+const frames = resolve(directory);
+if (existsSync(frames)) throw new Error("Choose a new frame directory so an earlier recording cannot be overwritten.");
 await mkdir(frames, { recursive: true });
-const browser = await chromium.launch({ executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", headless: true });
-const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 1 });
-const startedAt = "2026-09-12T10:00:00.000Z";
-const url = { href: "https://example.com/", hostname: "example.com", scheme: "https", port: "443", pathname: "/", queryKeys: [], hasQuery: false, hasFragment: false, display: "https://example.com/" };
-const providers = { dns: { status: "complete" }, http: { status: "complete" }, tls: { status: "complete" }, network: { status: "complete" }, technology: { status: "complete" } };
-const full = { id: "readme-observation", url, startedAt, finishedAt: "2026-09-12T10:00:03.000Z", providers,
- dns: { resolver: "Cloudflare DNS over HTTPS (1.1.1.1)", records: [{ type: "A", name: "example.com", value: "93.184.216.34", ttl: 300 }, { type: "NS", name: "example.com", value: "a.iana-servers.net", ttl: 86400 }], addresses: ["93.184.216.34"], queryStatus: { A: "NOERROR, 1 record", AAAA: "NOERROR, no records", CNAME: "NOERROR, no records", NS: "NOERROR, 1 record", MX: "NOERROR, no records", TXT: "NOERROR, no records", CAA: "NOERROR, no records", HTTPS: "NOERROR, no records", SVCB: "NOERROR, no records" } },
- http: { hops: [{ url: "https://example.com/", status: 200, headers: { "content-type": "text/html", "x-content-type-options": "nosniff" }, durationMs: 83, address: "93.184.216.34" }], finalUrl: "https://example.com/", finalStatus: 200, redirectCount: 0, chainComplete: true, headerSignals: [{ name: "x-content-type-options", title: "No MIME sniffing", state: "present", explanation: "Stops browsers guessing a different content type.", value: "nosniff" }], durationMs: 83 },
- tls: { hostname: "example.com", issuer: "DigiCert Inc", subject: "example.com", sans: ["example.com", "www.example.com"], validFrom: "2026-01-01T00:00:00.000Z", validTo: "2027-01-01T00:00:00.000Z", protocol: "TLSv1.3", fingerprint256: "AA:BB:CC", authorized: true, chain: [{ subject: "example.com", issuer: "DigiCert Inc", validTo: "2027-01-01T00:00:00.000Z" }] },
- network: { addresses: [{ ip: "93.184.216.34", version: 4, asn: "AS15133", organization: "EDGECAST", prefix: "93.184.216.0/24", country: "US", ptr: ["example.com"], source: "Team Cymru IP to ASN mapping", sourceUrl: "https://team-cymru.com/community-services/ip-asn-mapping/" }], limited: false },
- technology: { technologies: [], infrastructure: [], analyzedBytes: 1256, truncated: false },
- evidence: [{ id: "url-1", source: "url", kind: "input", label: "URL under investigation", value: "https://example.com/", confidence: "observed", observedAt: startedAt }, { id: "dns-1", source: "dns", kind: "record", label: "A record", value: "93.184.216.34", confidence: "observed", observedAt: startedAt }, { id: "http-1", source: "http", kind: "hop", label: "HTTP 200", value: "https://example.com/ via 93.184.216.34", confidence: "observed", observedAt: startedAt }, { id: "tls-1", source: "tls", kind: "certificate", label: "Certificate issuer", value: "DigiCert Inc", confidence: "observed", observedAt: startedAt }, { id: "network-1", source: "network", kind: "asn", label: "Announcing network", value: "AS15133 | EDGECAST | 93.184.216.0/24", confidence: "observed", observedAt: startedAt }] };
-const pending = { ...full, finishedAt: undefined, providers: Object.fromEntries(Object.keys(providers).map(key => [key, { status: key === "dns" ? "investigating" : "pending" }])), dns: undefined, http: undefined, tls: undefined, network: undefined, technology: undefined, evidence: [full.evidence[0]] };
-await page.route("**/api/investigate", async route => {
-  const body = JSON.stringify({ type: "start", investigation: pending }) + "\n" + JSON.stringify({ type: "complete", investigation: full }) + "\n";
-  await route.fulfill({ status: 200, contentType: "application/x-ndjson", body });
-});
-await page.goto("http://127.0.0.1:3099", { waitUntil: "networkidle" });
-let n = 0;
-const shot = async (repeat = 1) => { for (let i = 0; i < repeat; i++) await page.screenshot({ path: join(frames, `${String(n++).padStart(3, "0")}.png`) }); };
-await shot(10);
-await page.locator("#hero-url").fill("https://example.com");
-await shot(8);
-await page.getByRole("button", { name: "X-ray URL" }).click();
-await page.locator(".result-title-row").waitFor();
-await shot(18);
-await page.locator("#investigation-workspace").scrollIntoViewIfNeeded();
-await shot(16);
-await page.getByRole("button", { name: /Evidence/ }).click();
-await page.getByRole("heading", { name: "Show your work." }).waitFor();
-await shot(14);
-await browser.close();
+
+const source = process.env.README_DEMO_URL ?? "https://manishh-13.github.io/url-x-ray/";
+const localChrome = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || (existsSync(localChrome) ? localChrome : undefined);
+const browser = await chromium.launch({ headless: true, ...(executablePath ? { executablePath } : {}) });
+const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 1, colorScheme: "light" });
+page.setDefaultTimeout(25_000);
+const errors = [];
+const requests = [];
+const timeline = [];
+page.on("pageerror", error => errors.push(error.message));
+page.on("request", request => requests.push(request.url()));
+
+async function shot(label, duration) {
+  const file = `${String(timeline.length).padStart(3, "0")}.png`;
+  await page.screenshot({ path: join(frames, file), caret: "hide" });
+  timeline.push({ file, label, duration });
+}
+
+async function settle() {
+  await page.evaluate(async () => {
+    const finite = document.getAnimations().filter(animation => animation.effect?.getTiming().iterations !== Infinity);
+    await Promise.all(finite.map(animation => animation.finished.catch(() => undefined)));
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  });
+}
+
+async function scrollToWorkspace() {
+  const start = await page.evaluate(() => window.scrollY);
+  const end = await page.locator("#investigation-workspace").evaluate(element => window.scrollY + element.getBoundingClientRect().top - 12);
+  for (let frame = 1; frame <= 12; frame++) {
+    const progress = frame / 12;
+    const eased = 1 - Math.pow(1 - progress, 3);
+    await page.evaluate(y => window.scrollTo({ top: y, behavior: "instant" }), start + (end - start) * eased);
+    await shot("scroll-to-map", 50);
+  }
+}
+
+try {
+  await page.goto(source, { waitUntil: "networkidle" });
+  await page.getByLabel("Public URL to investigate").waitFor();
+  await settle();
+  if (await page.locator("html").getAttribute("data-theme") !== "light") throw new Error("The demo must show the default light theme.");
+  if (await page.locator(".edition-badge").innerText() !== "BROWSER EDITION") throw new Error("Record the browser edition, not the local backend.");
+  await shot("landing", 2000);
+
+  const input = page.getByLabel("Public URL to investigate");
+  for (const value of ["https://", "https://example", "https://example.com"]) {
+    await input.fill(value);
+    await shot("enter-url", 180);
+  }
+  await shot("url-ready", 700);
+  await page.getByRole("button", { name: "X-ray URL", exact: true }).click();
+  await page.locator(".result-title-row").waitFor();
+  await page.waitForFunction(() => document.querySelector(".result-eyebrow")?.textContent.includes("X-RAY COMPLETE"), null, { timeout: 45_000 });
+  await settle();
+  const summary = await page.locator(".result-summary").innerText();
+  if (!summary.includes("Public DNS records, ready to explore.")) throw new Error(`The live lookup did not finish successfully: ${summary}`);
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+  await shot("live-result", 2600);
+
+  await scrollToWorkspace();
+  await shot("infrastructure-map", 3200);
+  await page.getByLabel(/^Inspect DNS:/).click();
+  const dns = page.getByRole("dialog", { name: "DNS resolution", exact: true });
+  await dns.waitFor();
+  await dns.getByText("Inspect DNS records").click();
+  await settle();
+  await shot("live-dns-records", 3000);
+  await page.keyboard.press("Escape");
+
+  await page.getByRole("group", { name: "X-ray depth" }).getByRole("button", { name: /Evidence/ }).click();
+  await page.getByRole("heading", { name: "Show your work.", exact: true }).waitFor();
+  await page.getByLabel("Filter evidence").fill("asn");
+  await settle();
+  await shot("network-evidence", 3000);
+
+  await page.getByRole("group", { name: "X-ray depth" }).getByRole("button", { name: /Overview/ }).click();
+  await settle();
+  await shot("map-finish", 2200);
+  const lookupRequests = requests.filter(value => ["cloudflare-dns.com", "stat.ripe.net"].includes(new URL(value).hostname));
+  if (!lookupRequests.length) throw new Error("No live lookup requests were recorded.");
+  const unexpected = requests.filter(value => ![new URL(source).origin, "https://cloudflare-dns.com", "https://stat.ripe.net"].includes(new URL(value).origin));
+  if (unexpected.length || requests.some(value => value.includes("/api/investigate"))) throw new Error(`Unexpected target or backend request: ${unexpected.join(", ")}`);
+  if (errors.length) throw new Error(`Browser errors: ${errors.join("; ")}`);
+  await writeFile(join(frames, "timeline.json"), JSON.stringify({ source, recordedAt: new Date().toISOString(), width: 1280, height: 900, theme: "light", edition: "browser", summary, lookupRequests, errors, frames: timeline }, null, 2) + "\n");
+  console.log(`Captured ${timeline.length} frames from the live browser edition: ${frames}`);
+} finally {
+  await browser.close();
+}

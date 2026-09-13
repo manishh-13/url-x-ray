@@ -10,7 +10,9 @@ Observed facts and inferred platform hints stay labelled, with the collected evi
 
 > **MIT licensed.** Free to use, fork and modify. The hosted edition runs entirely in your browser. The full local app adds the certificate, redirect, header and technology checks. See [LICENSE](LICENSE).
 
-![URL X-Ray investigating a hostname](docs/xray-sequence.gif)
+![The light-theme browser edition investigating example.com and exploring DNS and network evidence](docs/xray-sequence.gif)
+
+Recorded from the live browser edition. [Try URL X-Ray](https://manishh-13.github.io/url-x-ray/).
 
 ## Two editions of the same instrument
 
